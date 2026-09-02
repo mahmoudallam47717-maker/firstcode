@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="مكتبنا - منصة عامة لإدارة المشاريع والدخل" />
+  <title>مكتبنا | منصة العمل</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="app">
+    <!-- ===== Auth view ===== -->
+    <section id="view-auth" class="view auth-view hidden">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <span class="logo-mark">م</span>
+          <span class="logo-text">مكتبنا</span>
+        </div>
+        <h1 id="auth-title">تسجيل الدخول</h1>
+        <p class="auth-sub" id="auth-sub">أهلاً بيك، سجّل دخولك وابدأ شغل</p>
+        <form id="auth-form" novalidate>
+          <div id="auth-name-field" class="field hidden">
+            <label for="auth-name">الاسم</label>
+            <input id="auth-name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="مثال: أحمد محمد" />
+          </div>
+          <div class="field">
+            <label for="auth-email">البريد الإلكتروني</label>
+            <input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com" />
+          </div>
+          <div class="field">
+            <label for="auth-password">كلمة المرور</label>
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" maxlength="128" required placeholder="••••••••" />
+          </div>
+          <div id="auth-persona-field" class="field hidden">
+            <label for="auth-persona">دورك في المنصة</label>
+            <select id="auth-persona"><option value="intermediary">وسيط</option><option value="specialist">متخصص</option><option value="client">عميل</option></select>
+          </div>
+          <div id="auth-error" class="alert alert-error hidden" role="alert"></div>
+          <button id="auth-submit" type="submit" class="btn btn-primary btn-block">تسجيل الدخول</button>
+        </form>
+        <p class="auth-toggle">
+          <span id="auth-toggle-text">ليس لديك حساب؟</span>
+          <button id="auth-toggle-btn" class="link" type="button">إنشاء حساب</button>
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== App view ===== -->
+    <section id="view-app" class="view app-view hidden">
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo-mark small">م</span>
+          <span class="logo-text">مكتبنا</span>
+        </div>
+        <nav class="topnav" id="topnav">
+          <button class="nav-item active" data-nav="dashboard">الرئيسية</button>
+          <button class="nav-item" data-nav="projects">المشاريع</button>
+          <button class="nav-item" data-nav="calculator">الحاسبة</button>
+          <button class="nav-item hidden" data-nav="income">إدارة الدخل</button>
+          <button class="nav-item hidden" data-nav="team">الفريق</button>
+        </nav>
+        <div class="topbar-actions">
+          <span id="user-chip" class="chip"></span>
+          <button id="account-btn" class="btn btn-ghost">حسابي</button>
+          <button id="logout-btn" class="btn btn-ghost">خروج</button>
+        </div>
+      </header>
+
+      <!-- ===== Dashboard ===== -->
+      <main id="page-dashboard" class="page">
+        <div class="page-head">
+          <div>
+            <h2 class="page-title">أهلاً <span id="dash-name"></span> 👋</h2>
+            <p class="page-sub">دورك في المنصة: <strong id="dash-role"></strong></p>
+            <div id="dash-specialist-code" class="specialist-code-card hidden"><span>كود المختص</span><strong></strong></div>
+            <p class="page-sub" id="dash-date"></p>
+          </div>
+        </div>
+
+        <div class="stats" id="stats-bar"></div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-head">
+              <h3>آخر المشاريع</h3>
+              <button class="link small" data-goto="projects">عرض الكل</button>
+            </div>
+            <div id="recent-projects" class="list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h3>توزيع أنواع الشغل</h3>
+            </div>
+            <div id="type-bars" class="type-bars"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ===== Projects ===== -->
+      <main id="page-projects" class="page hidden">
+        <div class="page-head">
+          <div>
+            <h2 class="page-title">المشاريع</h2>
+            <p class="page-sub">تابع شغل المكتب: بحث، ديزاين، تقارير، عروض وإعلانات</p>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-ghost" id="projects-export">⬇ تصدير Excel</button>
+            <button id="new-project-btn" class="btn btn-primary">+ مشروع جديد</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input id="search-input" type="search" placeholder="ابحث بالكود أو اسم المشروع أو اسم العميل..." class="search" />
+          <select id="filter-confirmed" class="filter hidden" data-role-filter="confirmed">
+            <option value="">كل الأرباح</option>
+            <option value="false">غير مؤكدة</option>
+            <option value="true">مؤكدة</option>
+          </select>
+          <div id="admin-bulk-tools" class="bulk-tools hidden">
+            <button class="btn btn-sm btn-ghost" id="select-toggle">☑️ تحديد</button>
+            <button class="btn btn-sm btn-ghost hidden" id="select-all-btn">تحديد الكل</button>
+            <button class="btn btn-sm btn-red hidden" id="delete-selected-btn">حذف المحدد</button>
+            <button class="btn btn-sm btn-red" id="delete-all-btn">🗑️ تصفية الكل</button>
+          </div>
+        </div>
+        <div class="project-tabs" id="project-tabs">
+          <button class="ptab active" data-pstatus="">كل المشاريع</button>
+          <button class="ptab" data-pstatus="pending">معلّقة</button>
+          <button class="ptab" data-pstatus="in_progress">قيد التنفيذ</button>
+          <button class="ptab" data-pstatus="done">منجزة</button>
+          <button class="ptab" data-pstatus="paid">مدفوع</button>
+        </div>
+        <div id="project-list" class="cards"></div>
+        <div id="empty-state" class="empty-state hidden">
+          <p>لا يوجد مشاريع مطابقة.</p>
+        </div>
+      </main>
+
+      <!-- ===== Calculator ===== -->
+      <main id="page-calculator" class="page hidden">
+        <div class="page-head">
+          <div>
+            <h2 class="page-title">حاسبة الفلوس</h2>
+            <p class="page-sub">احسب إجمالي الورقيات والعملات بسرعة</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="calc-head">
+            <h3>مجموع الورقيات</h3>
+            <div class="calc-result" id="calc-total">0 ج.م</div>
+          </div>
+          <div id="calc-rows" class="calc-rows"></div>
+          <p class="calc-note">اكتب عدد الورقيات جنب كل فئة، ومجموعها بيتجمّع تلقائيًا</p>
+        </div>
+      </main>
+
+      <!-- ===== Income ===== -->
+      <main id="page-income" class="page hidden">
+        <div class="page-head">
+          <div>
+            <h2 class="page-title">إدارة الدخل</h2>
+            <p class="page-sub">تابع دخل المشاريع وأكّد المدفوعات</p>
+          </div>
+          <div class="toolbar-right">
+            <select id="income-range" class="filter">
+              <option value="today">اليوم</option>
+              <option value="week">آخر 7 أيام</option>
+              <option value="month" selected>هذا الشهر</option>
+              <option value="all">كل الفترة</option>
+            </select>
+            <button class="btn btn-ghost" id="income-export">⬇ تصدير Excel</button>
+          </div>
+        </div>
+        <div class="stats" id="income-totals"></div>
+        <div id="income-pending" class="card hidden">
+          <div class="card-head"><h3>مشاريع منجزة في انتظار التأكيد</h3></div>
+          <div id="income-pending-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>دخل المستخدمين</h3></div>
+          <div class="table-wrap"><table id="income-table" class="table">
+            <thead>
+              <tr>
+                <th>الاسم</th>
+                <th>الدور</th>
+                <th>المشاريع</th>
+                <th>الدخل المؤكد</th>
+                <th>الدخل الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody id="income-body"></tbody>
+          </table></div>
+        </div>
+      </main>
+
+      <!-- ===== Team ===== -->
+      <main id="page-team" class="page hidden">
+        <div class="page-head">
+          <div>
+            <h2 class="page-title">الفريق</h2>
+            <p class="page-sub">إدارة الأعضاء: أسماء، باسوردات، صلاحيات</p>
+          </div>
+          <button id="new-user-btn" class="btn btn-primary">+ عضو جديد</button>
+        </div>
+        <div id="team-list" class="list big"></div>
+      </main>
+
+      <nav id="bottom-nav" class="bottom-nav">
+        <button class="bn-item active" data-nav="dashboard">الرئيسية</button>
+        <button class="bn-item" data-nav="projects">المشاريع</button>
+        <button class="bn-item" data-nav="calculator">الحاسبة</button>
+        <button class="bn-item hidden" data-nav="income">إدارة الدخل</button>
+        <button class="bn-item hidden" data-nav="team">الفريق</button>
+      </nav>
+    </section>
+  </div>
+
+  <!-- ===== Project modal ===== -->
+  <div id="project-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <h2 id="project-modal-title">مشروع جديد</h2>
+      <form id="project-form" novalidate>
+        <input type="hidden" id="project-id" />
+        <div class="field">
+          <label for="project-title">اسم المشروع</label>
+          <input id="project-title" type="text" maxlength="200" required placeholder="مثال: بحث عن الذكاء الاصطناعي" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="project-code">كود الطلب (تلقائي)</label>
+            <input id="project-code" type="text" maxlength="50" readonly placeholder="بيتولّد تلقائيًا" />
+          </div>
+          <div class="field">
+            <label for="project-client">اسم العميل</label>
+            <input id="project-client" type="text" maxlength="100" placeholder="مثال: أحمد محمد" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="project-type">النوع</label>
+            <select id="project-type"></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="project-currency">العملة</label>
+            <select id="project-currency">
+              <option value="egp">جنيه مصري (ج.م)</option>
+              <option value="sar">ريال سعودي (ر.س)</option>
+              <option value="usd">دولار ($)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="project-amount">القيمة (المبلغ)</label>
+            <input id="project-amount" type="number" min="0" step="0.01" placeholder="0" />
+          </div>
+        </div>
+        <div class="field" id="project-status-field">
+          <label for="project-status">الحالة</label>
+          <select id="project-status">
+            <option value="pending">معلّق</option>
+            <option value="in_progress">قيد التنفيذ</option>
+            <option value="done">مُنجز</option>
+          </select>
+        </div>
+        <div class="field" id="project-executor-code-field">
+          <label for="project-executor-code">كود المختص المنفذ</label>
+          <input id="project-executor-code" type="text" maxlength="40" placeholder="اكتب كود المختص" autocomplete="off" />
+          <small id="project-executor-match" class="field-hint"></small>
+        </div>
+        <div class="field">
+          <label for="project-notes">ملاحظات</label>
+          <textarea id="project-notes" rows="3" maxlength="2000"></textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="project-due">موعد التسليم (اليوم)</label>
+            <input id="project-due" type="date" />
+          </div>
+          <div class="field">
+            <label for="project-due-time">موعد التسليم (الساعة)</label>
+            <input id="project-due-time" type="time" />
+          </div>
+        </div>
+        <div id="project-error" class="alert alert-error hidden" role="alert"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+          <button type="submit" class="btn btn-primary">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== User modal ===== -->
+  <div id="user-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <h2 id="user-modal-title">عضو جديد</h2>
+      <form id="user-form" novalidate>
+        <input type="hidden" id="user-id" />
+        <div class="field">
+          <label for="user-name">الاسم</label>
+          <input id="user-name" type="text" maxlength="80" required />
+        </div>
+        <div class="field">
+          <label for="user-email">البريد الإلكتروني</label>
+          <input id="user-email" type="email" maxlength="254" required />
+        </div>
+        <div class="field">
+          <label for="user-password">كلمة المرور</label>
+          <input id="user-password" type="text" maxlength="128" placeholder="اتركها فارغة لعدم التغيير" />
+        </div>
+        <div class="field" id="user-specialist-code-field">
+          <label for="user-specialist-code">كود المختص (يُولد تلقائيًا بعد الحفظ)</label>
+          <input id="user-specialist-code" type="text" maxlength="40" placeholder="سيظهر تلقائيًا بعد حفظ المختص" autocomplete="off" readonly />
+        </div>
+        <div class="field-row">
+          <label class="check">
+            <input id="user-manage" type="checkbox" />
+            <span>صلاحية الإدارة (مشرف)</span>
+          </label>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="user-persona">دور العضو في المنصة</label>
+            <select id="user-persona">
+              <option value="specialist">متخصص</option>
+              <option value="intermediary">وسيط</option>
+              <option value="client">عميل</option>
+            </select>
+          </div>
+        </div>
+        <div id="user-error" class="alert alert-error hidden" role="alert"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+          <button type="submit" class="btn btn-primary">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Order status modal ===== -->
+  <div id="status-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <h2 id="status-modal-title">حالة الطلب</h2>
+      <div id="status-body"></div>
+      <button class="btn btn-sm btn-ghost" id="download-card-btn" title="اضغط Alt لتنزيل بطاقة الطلب كصورة">⬇ تنزيل بطاقة الطلب كصورة (Alt)</button>
+      <button class="btn btn-sm btn-green hidden" id="download-approval-card-btn">⬇ تنزيل بطاقة اعتماد المختص</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="account-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <h2>حسابي</h2>
+      <p id="account-email" class="auth-sub"></p>
+      <form id="account-form" novalidate>
+        <div class="field"><label for="account-current-password">كلمة المرور الحالية</label><input id="account-current-password" type="password" required /></div>
+        <div class="field"><label for="account-new-password">كلمة المرور الجديدة</label><input id="account-new-password" type="password" minlength="4" required /></div>
+        <div id="account-error" class="alert alert-error hidden" role="alert"></div>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" data-close>إلغاء</button><button type="submit" class="btn btn-primary">تغيير كلمة المرور</button></div>
+      </form>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="TaskFlow — تطبيق إدارة مهام كامل، يعمل محليًا بالكامل بدون أي خادم.">
+<title>TaskFlow — إدارة المهام</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%234f46e5'/%3E%3Cpath d='M7 12l3 3 7-7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#app-main">تخطَّ إلى المحتوى</a>
+
+<div class="app-shell" id="app">
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" focusable="false"><path d="M7 12l3 3 7-7" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">TaskFlow</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-theme" type="button" aria-label="تبديل المظهر" title="تبديل المظهر (T)">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" focusable="false"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn btn-primary" id="btn-new-task" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" focusable="false"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          مهمة جديدة
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main" id="app-main">
+    <aside class="sidebar" id="sidebar" aria-label="الشريط الجانبي">
+      <nav class="side-nav">
+        <button class="nav-item is-active" type="button" data-view="all">
+          <span class="nav-dot"></span> كل المهام
+          <span class="nav-count" data-count="all">0</span>
+        </button>
+        <button class="nav-item" type="button" data-view="today">
+          <span class="nav-dot dot-today"></span> اليوم
+          <span class="nav-count" data-count="today">0</span>
+        </button>
+        <button class="nav-item" type="button" data-view="upcoming">
+          <span class="nav-dot dot-upcoming"></span> قادمة
+          <span class="nav-count" data-count="upcoming">0</span>
+        </button>
+        <button class="nav-item" type="button" data-view="completed">
+          <span class="nav-dot dot-completed"></span> المكتملة
+          <span class="nav-count" data-count="completed">0</span>
+        </button>
+      </nav>
+
+      <div class="side-section">
+        <h2 class="side-title">الأولوية</h2>
+        <div class="filter-group" role="group" aria-label="تصفية حسب الأولوية">
+          <label class="pill"><input type="radio" name="priority-filter" value="" checked><span>الكل</span></label>
+          <label class="pill pill-high"><input type="radio" name="priority-filter" value="high"><span>عالي</span></label>
+          <label class="pill pill-medium"><input type="radio" name="priority-filter" value="medium"><span>متوسط</span></label>
+          <label class="pill pill-low"><input type="radio" name="priority-filter" value="low"><span>منخفض</span></label>
+        </div>
+      </div>
+
+      <div class="side-section">
+        <h2 class="side-title">وسوم</h2>
+        <div class="tag-cloud" id="tag-cloud" aria-label="تصفية حسب الوسم"></div>
+      </div>
+
+      <div class="side-footer">
+        <button class="btn btn-ghost btn-block" id="btn-export" type="button">تصدير البيانات</button>
+        <button class="btn btn-ghost btn-block btn-danger-ghost" id="btn-import" type="button">استيراد البيانات</button>
+        <input type="file" id="import-file" accept="application/json" class="visually-hidden" aria-hidden="true" tabindex="-1">
+        <button class="btn btn-ghost btn-block" id="btn-help" type="button">دليل الاستخدام</button>
+      </div>
+    </aside>
+
+    <section class="content" aria-labelledby="content-title">
+      <div class="content-header">
+        <div class="content-title-row">
+          <h1 class="content-title" id="content-title">كل المهام</h1>
+          <span class="content-subtitle" id="content-subtitle"></span>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="search" id="search-input" placeholder="ابحث عن مهمة..." aria-label="البحث في المهام">
+          </div>
+          <label class="select-wrap">
+            <span class="visually-hidden">ترتيب حسب</span>
+            <select id="sort-select">
+              <option value="created_desc">الأحدث أولاً</option>
+              <option value="due_asc">تاريخ الاستحقاق</option>
+              <option value="priority">الأولوية</option>
+              <option value="title">حسب الاسم</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="task-list" id="task-list" aria-live="polite"></div>
+      <div class="empty-state" id="empty-state" hidden>
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="40" height="40"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <h2>لا توجد مهام هنا</h2>
+        <p id="empty-hint">ابدأ بإضافة مهمة جديدة.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="task-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel" role="document">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">مهمة جديدة</h2>
+      <button class="icon-btn" type="button" data-close-modal aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" width="18" height="18" focusable="false"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="task-form" novalidate>
+      <input type="hidden" id="f-id">
+      <div class="field">
+        <label for="f-title">العنوان <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="f-title" maxlength="120" autocomplete="off" required>
+        <p class="field-error" id="err-title" role="alert"></p>
+      </div>
+      <div class="field">
+        <label for="f-notes">ملاحظات</label>
+        <textarea id="f-notes" rows="3" maxlength="2000"></textarea>
+        <p class="field-error" id="err-notes" role="alert"></p>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-due">تاريخ الاستحقاق</label>
+          <input type="date" id="f-due">
+          <p class="field-error" id="err-due" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="f-priority">الأولوية</label>
+          <select id="f-priority">
+            <option value="low">منخفضة</option>
+            <option value="medium" selected>متوسطة</option>
+            <option value="high">عالية</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-tags">وسوم (افصل بينها بفاصلة)</label>
+        <input type="text" id="f-tags" placeholder="مثال: عمل, شخصي" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-close-modal>إلغاء</button>
+        <button type="submit" class="btn btn-primary" id="submit-task">حفظ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+  <div class="modal-backdrop" data-close-help></div>
+  <div class="modal-panel modal-panel--wide" role="document">
+    <div class="modal-header">
+      <h2 class="modal-title" id="help-title">دليل الاستخدام</h2>
+      <button class="icon-btn" type="button" data-close-help aria-label="إغلاق">
+        <svg viewBox="0 0 24 24" width="18" height="18" focusable="false"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="help-body">
+      <h3>ما هو TaskFlow؟</h3>
+      <p>تطبيق إدارة مهام يعمل <strong>بالكامل محليًا داخل المتصفح</strong>. بياناتك تُحفظ في متصفحك ولا تُرسل لأي خادم. يعمل بدون اتصال بالإنترنت وبمجرد فتح الملف <code>index.html</code>.</p>
+      <h3>احتياطات الأمان</h3>
+      <ul>
+        <li>البيانات مخزّنة محليًا فقط في <code>localStorage</code> ولا تغادر جهازك أبدًا.</li>
+        <li>استخدم <strong>تصدير البيانات</strong> بانتظام وأحفظ النسخة الاحتياطية في مكان آمن، إذ أن مسح بيانات المتصفح يحذف مهامك.</li>
+        <li>أعد الاستيراد من أي نسخة مصدّرة لاستعادة المهام.</li>
+      </ul>
+      <h3>اختصارات لوحة المفاتيح</h3>
+      <ul class="shortcut-list">
+        <li><kbd>N</kbd> مهمة جديدة</li>
+        <li><kbd>E</kbd> تعديل أول مهمة ظاهرة</li>
+        <li><kbd>Delete</kbd> حذف المهمة المحددة</li>
+        <li><kbd>T</kbd> تبديل المظهر (ليلي/نهاري)</li>
+        <li><kbd>/</kbd> التركيز على البحث</li>
+        <li><kbd>Esc</kbd> إغلاق النوافذ</li>
+      </ul>
+      <h3>الترتيب والتصفية</h3>
+      <p>استخدم القائمة الجانبية للتنقل بين المهام حسب الحالة، والراديو لتصفية الأولوية، والوسوم للتصفية حسب الوسم، وخانة البحث مع الترتيب لتحديد العرض.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast-region" id="toast-region" aria-live="assertive" aria-atomic="false"></div>
+
+<script src="js/core/utils.js"></script>
+<script src="js/core/storage.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/domain/validation.js"></script>
+<script src="js/domain/tasks.js"></script>
+<script src="js/ui/notifications.js"></script>
+<script src="js/ui/theme.js"></script>
+<script src="js/ui/modals.js"></script>
+<script src="js/ui/render.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

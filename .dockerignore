@@ -1,0 +1,30 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env & secrets (never bake into image/layer or leak into build context)
+.env
+.env.*
+!.env.example
+
+# Data & databases
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# VCS / tooling
+.git/
+.gitignore
+
+# Dev only (not part of the runtime image context)
+playground/
+tests/
+*.md
+
+# Logs
+*.log

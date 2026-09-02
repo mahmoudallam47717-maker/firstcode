@@ -1,0 +1,23 @@
+services:
+  taskflow:
+    build: .
+    image: taskflow:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_PATH: /app/data/taskflow.db
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in your shell or .env}"
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: "${CORS_ORIGIN:?Set CORS_ORIGIN (e.g. https://app.example.com)}"
+      TRUST_PROXY: false
+      LOG_LEVEL: combined
+      RATE_LIMIT_MAX: 300
+      AUTH_RATE_LIMIT_MAX: 20
+    volumes:
+      - taskflow-data:/app/data
+
+volumes:
+  taskflow-data:
