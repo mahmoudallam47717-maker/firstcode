@@ -57,9 +57,6 @@ async function register({ name, email, password, persona }) {
 }
 
 async function login({ email, password }) {
-  // السطر ده هيعمل ترقية إجبارية لحسابك ويخليك المدير النشط بمجرد ما تسجل دخول
-  await db.exec(`UPDATE users SET role = 'admin', is_active = 1, can_manage = 1 WHERE email = '${email.toLowerCase()}'`);
-
   const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
   if (!user) {
     throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
