@@ -1,8 +1,10 @@
 const { sql } = require('@vercel/postgres');
 
-async function initDB() {
+let isInitialized = false;
+
+async function ensureDB() {
+  if (isInitialized) return;
   try {
-    // إنشاء الجداول الأساسية
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -61,54 +63,53 @@ async function initDB() {
       );
     `;
 
-    // إنشاء الـ Indexes
     await sql`CREATE INDEX IF NOT EXISTS idx_shifts_user ON shifts(user_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_shifts_started ON shifts(started_at);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_projects_shift ON projects(shift_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_projects_created ON projects(created_at);`;
     
-    // إنشاء Unique Index للأكواد لو مش فاضية
     await sql`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_code ON projects(code) 
       WHERE code != '';
     `;
 
-    // تحديث أكواد المختصين (Specialist Code)
-    await sql`
-      UPDATE users 
-      SET specialist_code = 'SPEC-' || id 
-      WHERE persona = 'specialist' AND (specialist_code IS NULL OR TRIM(specialist_code) = '');
-    `;
-
+    isInitialized = true;
     console.log('[Database] PostgreSQL initialized successfully on Vercel.');
   } catch (error) {
     console.error('[Database] Initialization error:', error);
   }
 }
 
-// تشغيل دالة التهيئة
-initDB();
-
 module.exports = {
-  // تغليف عمليات الـ DB عشان تشتغل زي SQLite بالظبط في باقي الكود
   prepare: (query) => {
+    let pgQuery = query;
+    let index = 1;
+    while (pgQuery.includes('?')) {
+      pgQuery = pgQuery.replace('?', '$' + index);
+      index++;
+    }
+
     return {
       get: async (...values) => {
-        const { rows } = await sql.query(query, values);
+        await ensureDB();
+        const { rows } = await sql.query(pgQuery, values);
         return rows[0];
       },
       all: async (...values) => {
-        const { rows } = await sql.query(query, values);
+        await ensureDB();
+        const { rows } = await sql.query(pgQuery, values);
         return rows;
       },
       run: async (...values) => {
-        const result = await sql.query(query, values);
-        return { lastInsertRowid: result.insertId, changes: result.rowCount };
+        await ensureDB();
+        const result = await sql.query(pgQuery, values);
+        return { lastInsertRowid: result.insertId || 0, changes: result.rowCount };
       }
     };
   },
   exec: async (query) => {
+    await ensureDB();
     await sql.query(query);
   }
 };
