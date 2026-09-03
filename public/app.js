@@ -10,130 +10,37 @@ const PERSONA_LABELS = { specialist: 'مختص', intermediary: 'وسيط', clien
 const personaLabel = (user) => user && (PERSONA_LABELS[user.persona] || (user.role === 'admin' ? 'مالك المنصة' : 'مستخدم'));
 
 const TYPE_LABELS = {
-  research: 'بحث علمي',
-  report: 'تقرير',
-  presentation: 'عرض تقديمي',
-  website: 'موقع ويب',
-  landing: 'صفحة هبوط',
-  ecommerce: 'متجر إلكتروني',
-  platform: 'منصة إلكترونية',
-  webapp: 'تطبيق ويب',
-  software: 'برنامج كمبيوتر',
-  app: 'تطبيق',
-  mobile: 'تطبيق موبايل',
-  tool: 'أداة / سكريبت',
-  design: 'ديزاين',
-  logo: 'لوجو / هوية بصرية',
-  branding: 'براندينج',
-  ui: 'تصميم واجهات (UI)',
-  ux: 'تجربة مستخدم (UX)',
-  animation: 'موشن جرافيك / أنيميشن',
-  photo: 'مونتاج صور / فوتوشوب',
-  video: 'فيديو / مونتاج',
-  writing: 'كتابة / محتوى',
-  ebook: 'كتاب إلكتروني',
-  course: 'كورس تعليمي',
-  script: 'إعداد / سيناريو / مسودات',
-  marketing: 'تسويق',
-  seo: 'تحسين محركات البحث (SEO)',
-  socialmedia: 'إدارة سوشيال ميديا',
-  ad: 'إعلان / حملة إعلانية',
-  data: 'إدخال بيانات',
-  excel: 'إكسل / جداول بيانات',
-  database: 'قواعد بيانات',
-  api: 'واجهة برمجية (API)',
-  dashboard: 'لوحة تحكم / داشبورد',
-  chatbot: 'شات بوت',
-  automation: 'أتمتة عمليات',
-  integration: 'ربط أنظمة / تكامل',
-  translation: 'ترجمة',
-  voice: 'تعليق صوتي / صوتيات',
-  proof: 'تدقيق لغوي / مراجعة',
-  game: 'ألعاب',
-  pos: 'نظام كاشير / نقاط بيع',
-  erp: 'نظام موارد / إدارة',
-  crm: 'إدارة علاقات عملاء (CRM)',
-  blockchain: 'بلوكتشين / عقود ذكية',
+  research: 'بحث علمي', report: 'تقرير', presentation: 'عرض تقديمي',
+  website: 'موقع ويب', landing: 'صفحة هبوط', ecommerce: 'متجر إلكتروني', platform: 'منصة إلكترونية', webapp: 'تطبيق ويب',
+  software: 'برنامج كمبيوتر', app: 'تطبيق', mobile: 'تطبيق موبايل', tool: 'أداة / سكريبت',
+  design: 'ديزاين', logo: 'لوجو / هوية بصرية', branding: 'براندينج', ui: 'تصميم واجهات (UI)', ux: 'تجربة مستخدم (UX)', animation: 'موشن جرافيك / أنيميشن', photo: 'مونتاج صور / فوتوشوب',
+  video: 'فيديو / مونتاج', writing: 'كتابة / محتوى', ebook: 'كتاب إلكتروني', course: 'كورس تعليمي', script: 'إعداد / سيناريو / مسودات',
+  marketing: 'تسويق', seo: 'تحسين محركات البحث (SEO)', socialmedia: 'إدارة سوشيال ميديا', ad: 'إعلان / حملة إعلانية',
+  data: 'إدخال بيانات', excel: 'إكسل / جداول بيانات', database: 'قواعد بيانات', api: 'واجهة برمجية (API)', dashboard: 'لوحة تحكم / داشبورد',
+  chatbot: 'شات بوت', automation: 'أتمتة عمليات', integration: 'ربط أنظمة / تكامل',
+  translation: 'ترجمة', voice: 'تعليق صوتي / صوتيات', proof: 'تدقيق لغوي / مراجعة',
+  game: 'ألعاب', pos: 'نظام كاشير / نقاط بيع', erp: 'نظام موارد / إدارة', crm: 'إدارة علاقات عملاء (CRM)', blockchain: 'بلوكتشين / عقود ذكية',
   other: 'أخرى',
 };
 
 const TYPE_COLORS = {
-  research: '#6366f1',
-  report: '#0a9f6e',
-  presentation: '#b83cc5',
-  website: '#0891b2',
-  landing: '#06b6d4',
-  ecommerce: '#f59e0b',
-  platform: '#0284c7',
-  webapp: '#0ea5e9',
-  software: '#7c3aed',
-  app: '#2563eb',
-  mobile: '#4f46e5',
-  tool: '#14b8a6',
-  design: '#ea5804',
-  logo: '#f43f5e',
-  branding: '#e11d48',
-  ui: '#8b5cf6',
-  ux: '#a855f7',
-  animation: '#db2777',
-  photo: '#9333ea',
-  video: '#dc2626',
-  writing: '#4b5563',
-  ebook: '#9d2235',
-  course: '#059669',
-  script: '#6b7280',
-  marketing: '#d97706',
-  seo: '#16a34a',
-  socialmedia: '#ec4899',
-  ad: '#b8860b',
-  data: '#0d9488',
-  excel: '#10b981',
-  database: '#0ea5e9',
-  api: '#3b82f6',
-  dashboard: '#6366f1',
-  chatbot: '#7c3aed',
-  automation: '#0891b2',
-  integration: '#0284c7',
-  translation: '#65a30d',
-  voice: '#111827',
-  proof: '#334155',
-  game: '#8b5cf6',
-  pos: '#0d9488',
-  erp: '#0284c7',
-  crm: '#059669',
-  blockchain: '#64748b',
-  other: '#64748b',
+  research: '#6366f1', report: '#0a9f6e', presentation: '#b83cc5', website: '#0891b2', landing: '#06b6d4', ecommerce: '#f59e0b', platform: '#0284c7', webapp: '#0ea5e9',
+  software: '#7c3aed', app: '#2563eb', mobile: '#4f46e5', tool: '#14b8a6', design: '#ea5804', logo: '#f43f5e', branding: '#e11d48', ui: '#8b5cf6', ux: '#a855f7', animation: '#db2777', photo: '#9333ea',
+  video: '#dc2626', writing: '#4b5563', ebook: '#9d2235', course: '#059669', script: '#6b7280', marketing: '#d97706', seo: '#16a34a', socialmedia: '#ec4899', ad: '#b8860b',
+  data: '#0d9488', excel: '#10b981', database: '#0ea5e9', api: '#3b82f6', dashboard: '#6366f1', chatbot: '#7c3aed', automation: '#0891b2', integration: '#0284c7',
+  translation: '#65a30d', voice: '#111827', proof: '#334155', game: '#8b5cf6', pos: '#0d9488', erp: '#0284c7', crm: '#059669', blockchain: '#64748b', other: '#64748b',
 };
 
 let state = {
-  user: null,
-  token: null,
-  activeShift: null,
-  shifts: [],
-  projects: [],
-  recentProjects: [],
-  stats: null,
-  typesCache: [],
-  cashier: null,
-  specialists: [],
-  intermediaries: [],
-  team: [],
-  page: 'dashboard',
-  authOpen: false,
-  projectStatus: '',
-  selectMode: false,
-  selected: new Set(),
+  user: null, token: null, activeShift: null, shifts: [], projects: [], recentProjects: [], stats: null, typesCache: [], cashier: null,
+  specialists: [], intermediaries: [], team: [], page: 'dashboard', authOpen: false, projectStatus: '', selectMode: false, selected: new Set(),
 };
 
 /* ==================== API ==================== */
 async function api(method, url, body) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   let data = null;
   try { data = await res.json(); } catch {}
   return { status: res.status, data };
@@ -170,9 +77,7 @@ function setAuthMode(mode) {
   $('#auth-persona-field').classList.toggle('hidden', isLogin || !registerAllowed);
   if (authToggleRow) authToggleRow.style.display = registerAllowed ? '' : 'none';
   authTitle.textContent = isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد';
-  authSub.textContent = isLogin
-    ? 'أهلاً بيك، سجّل دخولك وابدأ شغل'
-    : 'أنشئ حسابك وتابع مشاريعك ودخلك من أي مكان';
+  authSub.textContent = isLogin ? 'أهلاً بيك، سجّل دخولك وابدأ شغل' : 'أنشئ حسابك وتابع مشاريعك ودخلك من أي مكان';
   authBtn.textContent = isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب';
   authToggleText.textContent = isLogin ? 'ليس لديك حساب؟' : 'لديك حساب بالفعل؟';
   authToggleBtn.textContent = isLogin ? 'إنشاء حساب' : 'تسجيل الدخول';
@@ -189,17 +94,8 @@ authForm.addEventListener('submit', async (e) => {
   authBtn.disabled = true;
   authBtn.textContent = '...';
   try {
-    let res;
-    if (authMode === 'login') {
-      res = await api('POST', '/api/auth/login', { email, password });
-    } else {
-      res = await api('POST', '/api/auth/register', { name, email, password, persona: $('#auth-persona').value });
-    }
-    if (!res.status.toString().startsWith('2')) {
-      err.textContent = apiErr(res, 'حدث خطأ');
-      err.classList.remove('hidden');
-      return;
-    }
+    let res = authMode === 'login' ? await api('POST', '/api/auth/login', { email, password }) : await api('POST', '/api/auth/register', { name, email, password, persona: $('#auth-persona').value });
+    if (!res.status.toString().startsWith('2')) { err.textContent = apiErr(res, 'حدث خطأ'); err.classList.remove('hidden'); return; }
     state.user = res.data.user;
     state.token = res.data.token;
     sessionStorage.setItem('taskflow_token', state.token);
@@ -218,8 +114,7 @@ authToggleBtn.addEventListener('click', () => setAuthMode(authMode === 'login' ?
 
 /* ==================== Session ==================== */
 function logout() {
-  state.token = null;
-  state.user = null;
+  state.token = null; state.user = null;
   sessionStorage.removeItem('taskflow_token');
   showAuth();
 }
@@ -235,28 +130,20 @@ $$('#account-modal [data-close]').forEach((el) => el.addEventListener('click', (
 $('#account-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const error = $('#account-error');
-  const res = await api('PATCH', '/api/users/me/password', {
-    currentPassword: $('#account-current-password').value,
-    newPassword: $('#account-new-password').value,
-  });
+  const res = await api('PATCH', '/api/users/me/password', { currentPassword: $('#account-current-password').value, newPassword: $('#account-new-password').value });
   if (!res.status.toString().startsWith('2')) { error.textContent = apiErr(res); error.classList.remove('hidden'); return; }
   $('#account-modal').classList.add('hidden');
   toast('تم تغيير كلمة المرور بنجاح', 'success');
 });
 
-function isAdmin() {
-  return state.user && (state.user.role === 'admin' || state.user.can_manage);
-}
+function isAdmin() { return state.user && (state.user.role === 'admin' || state.user.can_manage); }
 
 /* ==================== Navigation ==================== */
 const NAV_MAP = { dashboard: 'dashboard', projects: 'projects', calculator: 'calculator', income: 'income', team: 'team' };
 
 function setupNav() {
   $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.page = btn.dataset.nav;
-      showPage(state.page);
-    });
+    btn.addEventListener('click', () => { state.page = btn.dataset.nav; showPage(state.page); });
   });
   $$('[data-goto]').forEach((b) => {
     b.addEventListener('click', () => { state.page = b.dataset.goto; showPage(state.page); });
@@ -283,16 +170,12 @@ function loadPage(page) {
 /* ==================== Common ==================== */
 function applyShiftButton(container, shift) {
   if (shift) {
-    container.innerHTML = `<span class="shift-status">● شيفت مفتوح من ${fmtTime(shift.started_at)}</span>
-      <button class="btn btn-primary" id="end-shift-btn">إنهاء الشيفت</button>`;
+    container.innerHTML = `<span class="shift-status">● شيفت مفتوح من ${fmtTime(shift.started_at)}</span><button class="btn btn-primary" id="end-shift-btn">إنهاء الشيفت</button>`;
   } else {
-    container.innerHTML = `<span class="shift-status off">لا يوجد شيفت نشط</span>
-      <button class="btn btn-green" id="start-shift-btn">▶ ابدأ الشيفت</button>`;
+    container.innerHTML = `<span class="shift-status off">لا يوجد شيفت نشط</span><button class="btn btn-green" id="start-shift-btn">▶ ابدأ الشيفت</button>`;
   }
-  const endBtn = $('#end-shift-btn');
-  if (endBtn) endBtn.addEventListener('click', endShift);
-  const startBtn = $('#start-shift-btn');
-  if (startBtn) startBtn.addEventListener('click', startShift);
+  const endBtn = $('#end-shift-btn'); if (endBtn) endBtn.addEventListener('click', endShift);
+  const startBtn = $('#start-shift-btn'); if (startBtn) startBtn.addEventListener('click', startShift);
 }
 
 async function startShift() {
@@ -307,9 +190,7 @@ async function endShift() {
   const res = await api('POST', '/api/shifts/end');
   if (!res.status.toString().startsWith('2')) { toast(apiErr(res), 'error'); return; }
   state.activeShift = null;
-  const summary = res.data && res.data.summary
-    ? ` — إجمالي الشيفت: ${fmtMoney(res.data.summary.earned)}`
-    : '';
+  const summary = res.data && res.data.summary ? ` — إجمالي الشيفت: ${fmtMoney(res.data.summary.earned)}` : '';
   toast(`تم إغلاق الشيفت بنجاح${summary}`, 'success');
   refreshAll();
 }
@@ -317,13 +198,11 @@ async function endShift() {
 const dt = (s) => (s ? new Date(s.replace(' ', 'T')) : null);
 function fmtTime(s) {
   if (!s) return '';
-  const d = dt(s);
-  return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  return dt(s).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 }
 function fmtDateTime(s) {
   if (!s) return '';
-  const d = dt(s);
-  return d.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+  return dt(s).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
 }
 function dur(start, end) {
   const a = dt(start); const b = end ? dt(end) : new Date();
@@ -342,27 +221,13 @@ async function loadDashboard() {
   const specialistCode = $('#dash-specialist-code');
   const isSpecialist = state.user.persona === 'specialist';
   specialistCode.classList.toggle('hidden', !isSpecialist);
-  specialistCode.querySelector('strong').textContent = isSpecialist
-    ? (state.user.specialist_code || `SPEC-${state.user.id}`)
-    : '';
+  specialistCode.querySelector('strong').textContent = isSpecialist ? (state.user.specialist_code || `SPEC-${state.user.id}`) : '';
   $('#dash-date').textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', dateStyle: 'full' });
   const res = await api('GET', '/api/projects/stats');
   if (res.status.toString().startsWith('2')) state.stats = res.data.stats;
   renderStats();
   renderRecent();
   renderTypeBars();
-}
-
-function setupShiftControls() {
-  const box = $('#shift-quick');
-  if (state.activeShift) {
-    box.innerHTML = `<span class="shift-status">● شيفت نشط</span>
-      <button class="btn btn-sm btn-primary" id="qs-end">إنهاء</button>`;
-  } else {
-    box.innerHTML = `<button class="btn btn-sm btn-green" id="qs-start">▶ ابدأ الشيفت</button>`;
-  }
-  const st = $('#qs-start'); if (st) st.addEventListener('click', startShift);
-  const en = $('#qs-end'); if (en) en.addEventListener('click', endShift);
 }
 
 function renderStats() {
@@ -374,9 +239,7 @@ function renderStats() {
     { v: s.done || 0, l: 'مُنجز' },
     { v: fmt(s.earned_confirmed || 0), l: 'الدخل المؤكد', c: 'green-t' },
   ];
-  $('#stats-bar').innerHTML = cards.map((c) =>
-    `<div class="stat-card"><span class="stat-value ${c.c || ''}">${c.v}</span><span class="stat-label">${c.l}</span></div>`
-  ).join('');
+  $('#stats-bar').innerHTML = cards.map((c) => `<div class="stat-card"><span class="stat-value ${c.c || ''}">${c.v}</span><span class="stat-label">${c.l}</span></div>`).join('');
 }
 
 function renderRecentProjects() {
@@ -405,7 +268,7 @@ function renderType() {
     const pct = Math.round((n / total) * 100);
     return `<div class="tb-row">
       <div class="tb-head"><span>${TYPE_LABELS[k]}</span><span>${n}</span></div>
-      <div class="tb-track"><div class="tb-fill" style="width:${pct}%;background:${TYPE_COLORS[k]}"></div></div>
+      <div class="tb-track"><div class="tb-fill" style="width:${pct}%;background:${TYPE_COLORS[k] || '#64748b'}"></div></div>
     </div>`;
   }).join('');
 }
@@ -433,9 +296,7 @@ function renderProjectList() {
   list.innerHTML = projects.map((p) => {
     const badge = p.income_visible === false ? '' : (p.is_confirmed
       ? '<span class="badge confirmed">مدفوع</span>'
-      : (p.status === 'done'
-          ? '<span class="badge unconfirmed">غير مدفوع</span>'
-          : `<span class="badge ${p.status}">${p.status === 'pending' ? 'معلّق' : 'قيد التنفيذ'}</span>`));
+      : (p.status === 'done' ? '<span class="badge unconfirmed">غير مدفوع</span>' : `<span class="badge ${p.status}">${p.status === 'pending' ? 'معلّق' : 'قيد التنفيذ'}</span>`));
     const actions = `
       <button class="btn btn-sm btn-primary" data-act="status" data-id="${p.id}">🔎 استعلام عن الحالة</button>
       <button class="btn btn-sm btn-ghost" data-act="${isAdmin() ? 'vew' : 'edit'}" data-id="${p.id}">${isAdmin() ? 'عرض' : 'تعديل'}</button>
@@ -446,7 +307,7 @@ function renderProjectList() {
       ${state.selectMode ? `<input type="checkbox" class="select-box" data-sel="${p.id}" ${checked ? 'checked' : ''} />` : ''}
       <div class="pc-top">
         <div class="pc-wrap"><span class="title">${esc(p.title)}</span>
-          <span class="tp ${p.project_type}">${TYPE_LABELS[p.project_type] || p.project_type}</span></div>
+          <span class="tp ${p.project_type}">${TYPE_LABELS[p.project_type] || esc(p.project_type)}</span></div>
       </div>
       <div class="pc-info">
         <span class="amount">${projectMoney(p)}</span>${badge}
@@ -461,14 +322,17 @@ function renderProjectList() {
   }).join('');
 }
 
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 /* ==================== Project modal ==================== */
 const projectModal = $('#project-modal');
 $('#new-project-btn').addEventListener('click', () => openProjectModal());
 $$('#project-modal [data-close]').forEach((el) => el.addEventListener('click', () => closeProjectModal()));
+
+// إظهار وإخفاء خانة "أخرى" لما تغير القائمة
+$('#project-type').addEventListener('change', (e) => {
+  $('#project-type-other').classList.toggle('hidden', e.target.value !== 'other');
+});
 
 function openProjectModal(id) {
   fillTypes($('#project-type'));
@@ -485,15 +349,13 @@ function openProjectModal(id) {
     const match = $('#project-executor-match');
     if (!code) { match.textContent = ''; return; }
     const result = await api('GET', `/api/projects/resolve-specialist?code=${encodeURIComponent(code)}`);
-    match.textContent = result.status === 200 && result.data.specialist
-      ? `سيصل الطلب إلى: ${result.data.specialist.name}`
-      : 'الكود غير مرتبط بمختص نشط';
+    match.textContent = result.status === 200 && result.data.specialist ? `سيصل الطلب إلى: ${result.data.specialist.name}` : 'الكود غير مرتبط بمختص نشط';
     match.className = `field-hint ${result.data && result.data.specialist ? 'valid' : 'invalid'}`;
   };
+  
   if (project) {
     $('#project-id').value = project.id;
     $('#project-title').value = project.title;
-    $('#project-type').value = project.project_type;
     $('#project-currency').value = project.currency || 'egp';
     $('#project-amount').value = project.amount;
     $('#project-paid-amount').value = project.paid_amount || '';
@@ -505,6 +367,17 @@ function openProjectModal(id) {
     $('#project-notes').value = project.notes || '';
     $('#project-due').value = project.due_date || '';
     $('#project-due-time').value = project.delivery_time || '';
+    
+    // التعامل مع نوع المشروع المخصص
+    if (TYPE_LABELS[project.project_type]) {
+      $('#project-type').value = project.project_type;
+      $('#project-type-other').classList.add('hidden');
+      $('#project-type-other').value = '';
+    } else {
+      $('#project-type').value = 'other';
+      $('#project-type-other').classList.remove('hidden');
+      $('#project-type-other').value = project.project_type || '';
+    }
   } else {
     $('#project-id').value = '';
     $('#project-title').value = '';
@@ -515,32 +388,37 @@ function openProjectModal(id) {
     $('#project-code').value = '';
     $('#project-code').placeholder = 'بيتولّد تلقائيًا...';
     api('GET', '/api/projects/next-code').then((res) => {
-      if (res.status === 200 && res.data.code) {
-        $('#project-code').value = res.data.code;
-        $('#project-code').placeholder = '';
-      }
+      if (res.status === 200 && res.data.code) { $('#project-code').value = res.data.code; $('#project-code').placeholder = ''; }
     });
-    const active = state.activeShift || (state.shifts.find((s) => !s.ended_at));
     $('#project-amount').value = '';
     $('#project-paid-amount').value = '';
     $('#project-executor-code').value = '';
+    
+    $('#project-type').value = 'research';
+    $('#project-type-other').classList.add('hidden');
+    $('#project-type-other').value = '';
   }
   projectModal.classList.remove('hidden');
   $('#project-title').focus();
 }
 
-function closeProjectModal() {
-  $('#project-modal').classList.add('hidden');
-}
+function closeProjectModal() { $('#project-modal').classList.add('hidden'); }
 
 $('#project-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#project-id').value;
   const err = $('#project-error');
   err.classList.add('hidden');
+  
+  // دمج نوع المشروع
+  let finalProjectType = $('#project-type').value;
+  if (finalProjectType === 'other') {
+    finalProjectType = $('#project-type-other').value.trim() || 'other';
+  }
+
   const body = {
     title: $('#project-title').value.trim(),
-    project_type: $('#project-type').value,
+    project_type: finalProjectType,
     amount: Number($('#project-amount').value) || 0,
     paid_amount: Number($('#project-paid-amount').value) || 0,
     currency: $('#project-currency').value,
@@ -553,9 +431,7 @@ $('#project-form').addEventListener('submit', async (e) => {
     notes: $('#project-notes').value.trim(),
   };
   if (!body.title) { err.textContent = 'اكتب اسم المشروع'; err.classList.remove('hidden'); return; }
-  const res = id
-    ? await api('PATCH', `/api/projects/${id}`, body)
-    : await api('POST', '/api/projects', body);
+  const res = id ? await api('PATCH', `/api/projects/${id}`, body) : await api('POST', '/api/projects', body);
   if (!res.status.toString().startsWith('2')) { err.textContent = apiErr(res); err.classList.remove('hidden'); return; }
   closeProjectModal();
   toast(id ? 'تم تحديث المشروع' : 'تم إضافة المشروع ✨', 'success');
@@ -568,11 +444,9 @@ $('#project-list').addEventListener('click', async (e) => {
   if (!btn) return;
   const act = btn.dataset.act;
   const id = Number(btn.dataset.id);
-  if (act === 'status') {
-    openStatusModal(id);
-  } else if (act === 'vew' || act === 'edit') {
-    openProjectModal(id);
-  } else if (act === 'del') {
+  if (act === 'status') { openStatusModal(id); }
+  else if (act === 'vew' || act === 'edit') { openProjectModal(id); }
+  else if (act === 'del') {
     if (!confirm('هل تريد حذف هذا المشروع؟')) return;
     const res = await api('DELETE', `/api/projects/${id}`);
     if (res.status.toString().startsWith('2')) { toast('تم الحذف', 'success'); refreshAll(); }
@@ -612,7 +486,7 @@ function renderStatusBody(p) {
       <div class="s-row"><span>كود الطلب</span><b>${esc(p.code) || '—'}</b></div>
       <div class="s-row"><span>اسم المشروع</span><b>${esc(p.title)}</b></div>
       <div class="s-row"><span>اسم العميل</span><b>👤 ${esc(p.client_name || '—')}</b></div>
-      <div class="s-row"><span>النوع</span><b>${TYPE_LABELS[p.project_type] || p.project_type}</b></div>
+      <div class="s-row"><span>النوع</span><b>${TYPE_LABELS[p.project_type] || esc(p.project_type)}</b></div>
       ${p.income_visible === false ? '' : `<div class="s-row"><span>قيمة الدخل</span><b>${projectMoney(p)}</b></div>`}
       ${p.income_visible === false ? '' : `<div class="s-row"><span>المدفوع مقدماً (عربون)</span><b>${fmtMoney(p.paid_amount, p.currency)}</b></div>`}
       ${p.due_date ? `<div class="s-row"><span>موعد التسليم</span><b>📅 ${esc(p.due_date)} ${p.delivery_time ? `الساعة ${esc(p.delivery_time)}` : ''}</b></div>` : ''}
@@ -967,30 +841,6 @@ $('#delete-all-btn').addEventListener('click', async () => {
   } else toast(apiErr(res), 'error');
 });
 
-/* ==================== Shifts page ==================== */
-async function loadShifts() {
-  const res = await api('GET', '/api/shifts');
-  if (res.status === 200) {
-    state.shifts = res.data.shifts;
-    state.activeShift = res.data.active;
-  }
-  applyShiftButton($('#shift-controls'), state.activeShift);
-  const list = $('#shift-list');
-  if (!state.shifts.length) {
-    list.innerHTML = `<div class="empty-state"><span class="empty-ico">🕐</span><div class="empty-msg">لم تسجّل أي شيفت بعد. اضغط "ابدأ الشيفت"</div></div>`;
-    return;
-  }
-  list.innerHTML = state.shifts.map((s) => `
-    <div class="li">
-      <div class="main">
-        <span class="li-title">${s.ended_at ? 'شيفت مكتمل' : 'شيفت نشط'} • ${dur(s.started_at, s.ended_at)}</span>
-        <span class="li-sub">بداية ${fmtDateTime(s.started_at)}${s.ended_at ? ` • نهاية ${fmtDateTime(s.ended_at)}` : ''}</span>
-        ${s.scheduled_start ? `<span class="li-sub">الميعاد المجدول ${fmtTime(s.scheduled_start)} — ${fmtTime(s.scheduled_end)}</span>` : ''}
-      </div>
-      <span class="li-muted">دخل: ${fmtMoney(s.earned || 0)}</span>
-    </div>`).join('');
-}
-
 /* ==================== Cashier ==================== */
 function cashierDateRange() {
   const val = $('#income-range') ? $('#income-range').value : 'month';
@@ -1042,7 +892,7 @@ function renderPendingCashier() {
     <div class="li">
       <div class="main">
         <span class="li-title">${esc(p.title)}</span>
-        <span class="li-sub">${esc(p.user_name)} • ${TYPE_LABELS[p.project_type] || p.project_type}</span>
+        <span class="li-sub">${esc(p.user_name)} • ${TYPE_LABELS[p.project_type] || esc(p.project_type)}</span>
       </div>
       <div class="li-actions">
         <span class="li-muted">${fmtMoney(p.amount, p.currency)}</span>
@@ -1051,9 +901,7 @@ function renderPendingCashier() {
 }
 
 async function downloadCsv(url, filename) {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${state.token}` },
-  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${state.token}` } });
   if (!res.ok) { toast('فشل التصدير: ' + ((res.status) === 401 ? 'سجّل الدخول مجددًا' : ` (${res.status})`), 'error'); return; }
   const blob = await res.blob();
   const a = document.createElement('a');
@@ -1142,27 +990,17 @@ $('#user-form').addEventListener('submit', async (e) => {
   const err = $('#user-error');
   err.classList.add('hidden');
   const manage = $('#user-manage').checked;
-  const body = {
-    name: $('#user-name').value.trim(),
-    email: $('#user-email').value.trim(),
-    persona: $('#user-persona').value,
-    specialist_code: $('#user-persona').value === 'specialist' ? $('#user-specialist-code').value.trim() : undefined,
-  };
+  const body = { name: $('#user-name').value.trim(), email: $('#user-email').value.trim(), persona: $('#user-persona').value, specialist_code: $('#user-persona').value === 'specialist' ? $('#user-specialist-code').value.trim() : undefined };
   if (id) {
-    body.role = manage ? 'admin' : 'user';
-    body.can_manage = manage;
-    const pw = $('#user-password').value.trim();
-    if (pw) body.password = pw;
+    body.role = manage ? 'admin' : 'user'; body.can_manage = manage;
+    const pw = $('#user-password').value.trim(); if (pw) body.password = pw;
   } else {
     body.password = $('#user-password').value.trim();
     if (!body.password) { err.textContent = 'كلمة المرور مطلوبة للعضو الجديد'; err.classList.remove('hidden'); return; }
-    body.role = manage ? 'admin' : 'user';
-    body.can_manage = manage;
+    body.role = manage ? 'admin' : 'user'; body.can_manage = manage;
   }
   if (!body.name) { err.textContent = 'اكتب الاسم'; err.classList.remove('hidden'); return; }
-  const res = id
-    ? await api('PATCH', `/api/users/admin/users/${id}`, body)
-    : await api('POST', '/api/users/admin/users', body);
+  const res = id ? await api('PATCH', `/api/users/admin/users/${id}`, body) : await api('POST', '/api/users/admin/users', body);
   if (!res.status.toString().startsWith('2')) { err.textContent = apiErr(res); err.classList.remove('hidden'); return; }
   closeUserModal();
   toast(id ? 'تم تحديث العضو' : 'تمت إضافة العضو ✨', 'success');
@@ -1190,13 +1028,7 @@ const CALC_COLORS = ['#059669', '#0284c7', '#7c3aed', '#ea5804', '#b83cc5', '#b8
 
 function renderCalculatorRows() {
   const rows = $('#calc-rows');
-  rows.innerHTML = CALC_DENOMS.map((d, i) => `
-    <div class="calc-row">
-      <span class="calc-ico" style="background:${CALC_COLORS[i]}">${d}</span>
-      <span class="calc-val">${d} جنيه</span>
-      <input class="calc-count" type="number" min="0" step="1" inputmode="numeric" placeholder="العدد" data-denom="${d}" />
-      <span class="calc-row-total" data-total="${d}">0</span>
-    </div>`).join('');
+  rows.innerHTML = CALC_DENOMS.map((d, i) => `<div class="calc-row"><span class="calc-ico" style="background:${CALC_COLORS[i]}">${d}</span><span class="calc-val">${d} جنيه</span><input class="calc-count" type="number" min="0" step="1" inputmode="numeric" placeholder="العدد" data-denom="${d}" /><span class="calc-row-total" data-total="${d}">0</span></div>`).join('');
   rows.addEventListener('input', recalcCalculator);
 }
 
@@ -1212,9 +1044,7 @@ function recalcCalculator() {
   $('#calc-total').textContent = `${fmt(total)} ج.م`;
 }
 
-function loadCalculator() {
-  renderCalculatorRows();
-}
+function loadCalculator() { renderCalculatorRows(); }
 
 /* ==================== Boot ==================== */
 let hasLoadedModules = false;
@@ -1230,45 +1060,29 @@ async function refreshAll() {
   if (intermediaries.status === 200) state.intermediaries = intermediaries.data.users;
   const s = await api('GET', '/api/projects/stats');
   if (s.status === 200) state.stats = s.data.stats;
-  renderStats();
-  renderRecent();
-  renderType();
-  loadProjectListIfVisible();
+  renderStats(); renderRecent(); renderType(); loadProjectListIfVisible();
 }
 
 function loadProjectListIfVisible() { if (state.page === 'projects') renderProjectList(); }
-
 function renderRecent() { renderRecentProjects(); }
 function renderTypeBars() { renderType(); }
 
 function showAuth() {
-  $('#view-auth').classList.remove('hidden');
-  $('#view-app').classList.add('hidden');
-  setAuthMode('login');
-  $('#auth-error').classList.add('hidden');
-  $('#auth-form').reset();
+  $('#view-auth').classList.remove('hidden'); $('#view-app').classList.add('hidden');
+  setAuthMode('login'); $('#auth-error').classList.add('hidden'); $('#auth-form').reset();
 }
 
 async function enterApp() {
-  $('#view-auth').classList.add('hidden');
-  $('#view-app').classList.remove('hidden');
+  $('#view-auth').classList.add('hidden'); $('#view-app').classList.remove('hidden');
   $('#user-chip').textContent = `${state.user.name} • ${personaLabel(state.user)}`;
-  // admin-only nav
   const adminOnlyNav = ['income', 'team'];
-  $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((b) => {
-    b.classList.toggle('hidden', adminOnlyNav.includes(b.dataset.nav) && !isAdmin());
-  });
-  refreshAdminTools();
-  await refreshAll();
-  showPage('dashboard');
-  void renderRecent;
+  $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((b) => { b.classList.toggle('hidden', adminOnlyNav.includes(b.dataset.nav) && !isAdmin()); });
+  refreshAdminTools(); await refreshAll(); showPage('dashboard'); void renderRecent;
 }
 
 /* ==================== Init ==================== */
 function init() {
   setupNav();
-
-  // التسجيل العام متاح، وأول حساب يحصل على صلاحية المالك.
   api('GET', '/api/auth/status').then((res) => {
     if (res.status === 200) state.authOpen = res.data.registrationOpen;
     bootFromToken();
@@ -1279,19 +1093,9 @@ function bootFromToken() {
   const token = sessionStorage.getItem('taskflow_token');
   if (token) {
     state.token = token;
-    api('GET', '/api/users/me').then((res) => {
-      if (res.status === 200) {
-        state.user = res.data.user;
-        enterApp();
-      } else {
-        showAuth();
-      }
-    });
-  } else {
-    showAuth();
-  }
+    api('GET', '/api/users/me').then((res) => { if (res.status === 200) { state.user = res.data.user; enterApp(); } else { showAuth(); } });
+  } else { showAuth(); }
 }
 
 init();
-// cleanup: avoid ref fn duplicates
 Object.assign(globalThis, { refreshAll, startShift, endShift, showPage, showAuth });

@@ -8,6 +8,14 @@
   <link rel="stylesheet" href="/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* حل مشكلة اختفاء الأزرار في الموبايل */
+    .modal-panel {
+      max-height: 90dvh !important;
+      overflow-y: auto !important;
+      padding-bottom: 2rem !important;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
@@ -241,9 +249,10 @@
           <div class="field">
             <label for="project-type">النوع</label>
             <select id="project-type"></select>
+            <!-- خانة كتابة نوع المشروع المخصص (تظهر لما يختار أخرى) -->
+            <input id="project-type-other" type="text" class="hidden" placeholder="اكتب نوع المشروع هنا..." style="margin-top: 10px;" maxlength="100" />
           </div>
         </div>
-        <!-- تم إضافة خانة العربون هنا -->
         <div class="field-row">
           <div class="field">
             <label for="project-currency">العملة</label>
@@ -272,7 +281,6 @@
             </select>
           </div>
         </div>
-        <!-- نهاية التعديل -->
         <div class="field" id="project-executor-code-field">
           <label for="project-executor-code">كود المختص المنفذ</label>
           <input id="project-executor-code" type="text" maxlength="40" placeholder="اكتب كود المختص" autocomplete="off" />

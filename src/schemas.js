@@ -25,7 +25,6 @@ const PROJECT_TYPES = [
   'game', 'pos', 'erp', 'crm', 'blockchain',
   'other',
 ];
-const projectTypeEnum = z.enum(PROJECT_TYPES);
 
 const dateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'الصيغة YYYY-MM-DD').nullable().optional();
 const timeSchema = z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'الصيغة HH:MM مثل 09:00').nullable().optional();
@@ -35,7 +34,7 @@ const currencyEnum = z.enum(CURRENCIES);
 
 const createProjectSchema = z.object({
   title: z.string().trim().min(1, 'اسم المشروع مطلوب').max(200),
-  project_type: projectTypeEnum.optional(),
+  project_type: z.string().trim().max(100).optional(), /* التعديل هنا لتقبل أي نص تكتبه */
   amount: z.coerce.number().min(0).optional(),
   paid_amount: z.coerce.number().min(0).optional(),
   currency: currencyEnum.optional(),
@@ -54,7 +53,7 @@ const createProjectSchema = z.object({
 
 const updateProjectSchema = z.object({
   title: z.string().trim().min(1, 'اسم المشروع مطلوب').max(200).optional(),
-  project_type: projectTypeEnum.optional(),
+  project_type: z.string().trim().max(100).optional(), /* التعديل هنا لتقبل أي نص تكتبه */
   amount: z.coerce.number().min(0).optional(),
   paid_amount: z.coerce.number().min(0).optional(),
   currency: currencyEnum.optional(),
@@ -73,7 +72,7 @@ const updateProjectSchema = z.object({
 
 const projectQuerySchema = z.object({
   status: z.enum(['pending', 'in_progress', 'done']).optional(),
-  project_type: projectTypeEnum.optional(),
+  project_type: z.string().trim().max(100).optional(),
   confirmed: z.enum(['true', 'false']).optional(),
   search: z.string().trim().max(200).optional(),
   code: z.string().trim().max(50).optional(),
