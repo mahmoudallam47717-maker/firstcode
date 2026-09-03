@@ -243,6 +243,7 @@
             <select id="project-type"></select>
           </div>
         </div>
+        <!-- تم إضافة خانة العربون هنا -->
         <div class="field-row">
           <div class="field">
             <label for="project-currency">العملة</label>
@@ -253,18 +254,25 @@
             </select>
           </div>
           <div class="field">
-            <label for="project-amount">القيمة (المبلغ)</label>
+            <label for="project-amount">المبلغ الكلي</label>
             <input id="project-amount" type="number" min="0" step="0.01" placeholder="0" />
           </div>
         </div>
-        <div class="field" id="project-status-field">
-          <label for="project-status">الحالة</label>
-          <select id="project-status">
-            <option value="pending">معلّق</option>
-            <option value="in_progress">قيد التنفيذ</option>
-            <option value="done">مُنجز</option>
-          </select>
+        <div class="field-row">
+          <div class="field">
+            <label for="project-paid-amount">العربون (مدفوع مقدماً)</label>
+            <input id="project-paid-amount" type="number" min="0" step="0.01" placeholder="0" />
+          </div>
+          <div class="field" id="project-status-field">
+            <label for="project-status">الحالة</label>
+            <select id="project-status">
+              <option value="pending">معلّق</option>
+              <option value="in_progress">قيد التنفيذ</option>
+              <option value="done">مُنجز</option>
+            </select>
+          </div>
         </div>
+        <!-- نهاية التعديل -->
         <div class="field" id="project-executor-code-field">
           <label for="project-executor-code">كود المختص المنفذ</label>
           <input id="project-executor-code" type="text" maxlength="40" placeholder="اكتب كود المختص" autocomplete="off" />

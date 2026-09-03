@@ -308,7 +308,7 @@ async function endShift() {
   if (!res.status.toString().startsWith('2')) { toast(apiErr(res), 'error'); return; }
   state.activeShift = null;
   const summary = res.data && res.data.summary
-    ? ` — إجمالي الشيفت: ${fmtMoney(res.data.summary.earned)}${res.data.summary.deficit ? ` • عجز: ${res.data.summary.deficit}` : ''}`
+    ? ` — إجمالي الشيفت: ${fmtMoney(res.data.summary.earned)}`
     : '';
   toast(`تم إغلاق الشيفت بنجاح${summary}`, 'success');
   refreshAll();
@@ -374,11 +374,6 @@ function renderStats() {
     { v: s.done || 0, l: 'مُنجز' },
     { v: fmt(s.earned_confirmed || 0), l: 'الدخل المؤكد', c: 'green-t' },
   ];
-  if (s.deficit_minutes || s.manual_deficit) {
-    cards.push({ v: `${s.deficit_minutes} د`, l: 'عجز الوقت', c: 'red-t' });
-    if (s.manual_deficit) cards.push({ v: fmt(s.manual_deficit), l: 'عجز فلوس يدوي', c: 'red-t' });
-    if (s.deficit_amount) cards.push({ v: fmt(s.deficit_amount), l: 'خصم العجز (سعر الساعة)', c: 'red-t' });
-  }
   $('#stats-bar').innerHTML = cards.map((c) =>
     `<div class="stat-card"><span class="stat-value ${c.c || ''}">${c.v}</span><span class="stat-label">${c.l}</span></div>`
   ).join('');
@@ -501,6 +496,7 @@ function openProjectModal(id) {
     $('#project-type').value = project.project_type;
     $('#project-currency').value = project.currency || 'egp';
     $('#project-amount').value = project.amount;
+    $('#project-paid-amount').value = project.paid_amount || '';
     $('#project-code').value = project.code || '';
     $('#project-code').readOnly = true;
     $('#project-client').value = project.client_name || '';
@@ -526,6 +522,7 @@ function openProjectModal(id) {
     });
     const active = state.activeShift || (state.shifts.find((s) => !s.ended_at));
     $('#project-amount').value = '';
+    $('#project-paid-amount').value = '';
     $('#project-executor-code').value = '';
   }
   projectModal.classList.remove('hidden');
@@ -545,6 +542,7 @@ $('#project-form').addEventListener('submit', async (e) => {
     title: $('#project-title').value.trim(),
     project_type: $('#project-type').value,
     amount: Number($('#project-amount').value) || 0,
+    paid_amount: Number($('#project-paid-amount').value) || 0,
     currency: $('#project-currency').value,
     status: $('#project-status').value,
     executor_code: $('#project-executor-code').value.trim(),
@@ -616,6 +614,7 @@ function renderStatusBody(p) {
       <div class="s-row"><span>اسم العميل</span><b>👤 ${esc(p.client_name || '—')}</b></div>
       <div class="s-row"><span>النوع</span><b>${TYPE_LABELS[p.project_type] || p.project_type}</b></div>
       ${p.income_visible === false ? '' : `<div class="s-row"><span>قيمة الدخل</span><b>${projectMoney(p)}</b></div>`}
+      ${p.income_visible === false ? '' : `<div class="s-row"><span>المدفوع مقدماً (عربون)</span><b>${fmtMoney(p.paid_amount, p.currency)}</b></div>`}
       ${p.due_date ? `<div class="s-row"><span>موعد التسليم</span><b>📅 ${esc(p.due_date)} ${p.delivery_time ? `الساعة ${esc(p.delivery_time)}` : ''}</b></div>` : ''}
       <div class="s-row"><span>الحالة</span>${statusBadge}</div>
       <div class="s-row"><span>اعتماد الطلب</span>${approvalBadge}</div>
@@ -751,6 +750,7 @@ function downloadCardImage(p, approval = false) {
     push('كود الطلب', p.code || '—');
     push('نوع المشروع', typeLabel);
     push('قيمة الطلب', fmtMoney(p.amount, p.currency));
+    push('المدفوع مقدماً (عربون)', fmtMoney(p.paid_amount, p.currency));
     push('موعد التسليم', dueStr);
     push('حالة الدفع', payText, payColor);
     push('تاريخ الإضافة', createdStr);
@@ -987,7 +987,7 @@ async function loadShifts() {
         <span class="li-sub">بداية ${fmtDateTime(s.started_at)}${s.ended_at ? ` • نهاية ${fmtDateTime(s.ended_at)}` : ''}</span>
         ${s.scheduled_start ? `<span class="li-sub">الميعاد المجدول ${fmtTime(s.scheduled_start)} — ${fmtTime(s.scheduled_end)}</span>` : ''}
       </div>
-      <span class="li-muted">${s.deficit_minutes ? `عجز: ${s.deficit_minutes} د • ` : ''}دخل: ${fmtMoney(s.earned || 0)}</span>
+      <span class="li-muted">دخل: ${fmtMoney(s.earned || 0)}</span>
     </div>`).join('');
 }
 
@@ -1095,7 +1095,7 @@ async function loadTeam() {
         <span class="li-sub">${esc(u.email)} • ${personaLabel(u)}${u.specialist_code ? ` • كود المختص: ${esc(u.specialist_code)}` : ''}${u.role === 'admin' ? ' • مالك المنصة' : ''} • ${u.project_count} مشروع</span>
       </div>
       <div class="li-actions">
-        <span class="li-muted">${fmtMoney(u.earned_confirmed)}${u.deficit_minutes ? `<br>عجز الوقت: ${u.deficit_minutes} د • ${fmtMoney(u.deficit_amount || 0)}`: ''}${u.manual_deficit ? `<br>عجز فلوس يدوي: ${fmtMoney(u.manual_deficit)}`: ''}</span>
+        <span class="li-muted">${fmtMoney(u.earned_confirmed)}</span>
         <button class="btn btn-sm btn-ghost" data-uteam="edit" data-id="${u.id}">تعديل</button>
         <button class="btn btn-sm btn-red" data-uteam="del" data-id="${u.id}">حذف</button>
       </div>
