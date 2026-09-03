@@ -59,22 +59,45 @@ function toast(msg, type = 'info') {
   toastTimer = setTimeout(() => { t.classList.add('hidden'); }, 4000);
 }
 
-// دالة إصدار صوت الإشعار
+// فك قفل الصوت في المتصفح بعد أول تفاعل للمستخدم
+let audioCtx = null;
+function unlockAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+window.addEventListener('click', unlockAudio, { once: true });
+window.addEventListener('touchstart', unlockAudio, { once: true });
+
+// دالة إصدار صوت الإشعار المزدوج
 function playNotificationSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (!audioCtx) unlockAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(audioCtx.destination);
+    
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(800, ctx.currentTime);
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 1);
-    osc.start();
-    osc.stop(ctx.currentTime + 1);
-  } catch (e) {}
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // نغمة أولى
+    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // نغمة تانية
+    
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+    gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.2);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.4);
+  } catch (e) {
+    console.error("Audio block: ", e);
+  }
 }
 
 let notifInterval = null;
@@ -86,9 +109,15 @@ async function checkNotifications() {
       playNotificationSound();
       for (const n of res.data.notifications) {
         toast('🔔 ' + n.message, 'success');
+        
+        // إشعار المتصفح الخارجي (موبايل و كمبيوتر)
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('مكتبنا - إشعار جديد', { body: n.message, requireInteraction: true });
+        }
+        
         await api('POST', `/api/users/notifications/${n.id}/read`);
       }
-      refreshAll(); // تحديث القوائم تلقائياً لما يوصل إشعار
+      refreshAll(); 
     }
   } catch (e) {}
 }
@@ -1111,7 +1140,12 @@ async function enterApp() {
   $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((b) => { b.classList.toggle('hidden', adminOnlyNav.includes(b.dataset.nav) && !isAdmin()); });
   refreshAdminTools(); await refreshAll(); showPage('dashboard'); void renderRecent;
   
-  // تشغيل مراقب الإشعارات كل 7 ثواني (السطرين دول هما اللي بيعملوا السحر)
+  // طلب صلاحيات الإشعارات من المتصفح (موبايل وكمبيوتر) أول ما يدخل المنصة
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  
+  // مراقب الإشعارات يشتغل كل 7 ثواني (لو في إشعار هيعمل رنة ويحدث نفسه)
   if (notifInterval) clearInterval(notifInterval);
   notifInterval = setInterval(checkNotifications, 7000);
   checkNotifications();
