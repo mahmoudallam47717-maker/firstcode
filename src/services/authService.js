@@ -4,7 +4,6 @@ const { signToken } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const config = require('../config');
 
-// ضفنا async عشان لو احتاج يعدل كود المختص يستنى قاعدة البيانات
 async function sanitizeUser(user) {
   if (!user) return null;
   if (user.persona === 'specialist' && !user.specialist_code) {
@@ -30,7 +29,6 @@ async function sanitizeUser(user) {
 }
 
 async function register({ name, email, password, persona }) {
-  // ضفنا await في كل تعاملات قاعدة البيانات
   const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
   if (existing) {
     throw new AppError(409, 'An account with this email already exists', 'EMAIL_TAKEN');
@@ -44,7 +42,6 @@ async function register({ name, email, password, persona }) {
     .prepare('INSERT INTO users (name, email, password_hash, role, persona) VALUES (?, ?, ?, ?, ?)')
     .run(name.trim(), email.toLowerCase(), hash, count === 0 ? 'admin' : 'user', persona || 'specialist');
   
-  // نجيب بيانات المستخدم اللي لسه متسجل حالا عشان نعرف الـ ID بتاعه
   const insertedUser = await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
   const newUserId = insertedUser.id;
 
@@ -69,3 +66,6 @@ async function login({ email, password }) {
 
   return { user: await sanitizeUser(user), token: signToken(user) };
 }
+
+// السطر ده كان ناقص وهو اللي بيعرف السيرفر على الدوال
+module.exports = { sanitizeUser, register, login };
