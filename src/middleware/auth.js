@@ -14,7 +14,8 @@ function verifyToken(token) {
   return jwt.verify(token, config.jwtSecret, { issuer: 'taskflow', algorithms: ['HS256'] });
 }
 
-function requireAuth(req, res, next) {
+// ضفنا كلمة async هنا
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, token] = header.split(' ');
 
@@ -29,17 +30,24 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  const user = db.prepare('SELECT id, name, email, role, persona, specialist_code, can_manage, is_active, shift_start, shift_end, hourly_rate, manual_deficit, created_at FROM users WHERE id = ?').get(payload.sub);
-  if (!user) {
-    return res.status(401).json({ error: 'User no longer exists' });
-  }
-  if (!user.is_active) {
-    return res.status(403).json({ error: 'الحساب معطّل، تواصل مع المدير' });
-  }
+  try {
+    // ضفنا كلمة await هنا عشان يستنى النتيجة الحقيقية
+    const user = await db.prepare('SELECT id, name, email, role, persona, specialist_code, can_manage, is_active, shift_start, shift_end, hourly_rate, manual_deficit, created_at FROM users WHERE id = ?').get(payload.sub);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User no longer exists' });
+    }
+    // دلوقتي هيقرأ الحالة صح ومش هيطلع رسالة التعطيل
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'الحساب معطّل، تواصل مع المدير' });
+    }
 
-  req.user = user;
-  req.tokenPayload = payload;
-  return next();
+    req.user = user;
+    req.tokenPayload = payload;
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Database error' });
+  }
 }
 
 function isAdmin(user) {

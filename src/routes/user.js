@@ -21,26 +21,28 @@ router.get('/me', (req, res) => {
   res.json({ user: sanitizeUser(req.user) });
 });
 
-router.get('/specialists', (req, res) => {
-  const users = db.prepare("SELECT id, name, email FROM users WHERE persona = 'specialist' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
+router.get('/specialists', async (req, res) => {
+  const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'specialist' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
   res.json({ users });
 });
 
-router.get('/intermediaries', (req, res) => {
-  const users = db.prepare("SELECT id, name, email FROM users WHERE persona = 'intermediary' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
+router.get('/intermediaries', async (req, res) => {
+  const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'intermediary' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
   res.json({ users });
 });
 
-router.post('/projects/:id/approve', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) throw new AppError(400, 'معرف غير صحيح', 'INVALID_ID');
-  res.json({ project: projectService.approveProject(req.user.id, id) });
+router.post('/projects/:id/approve', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new AppError(400, 'معرف غير صحيح', 'INVALID_ID');
+    res.json({ project: await projectService.approveProject(req.user.id, id) });
+  } catch (err) { next(err); }
 });
 
 router.patch('/me/password', validate(changePasswordSchema), async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const full = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const full = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     const ok = await bcrypt.compare(currentPassword, full.password_hash);
     if (!ok) {
       throw new AppError(400, 'كلمة المرور الحالية غير صحيحة', 'WRONG_PASSWORD');
@@ -49,7 +51,7 @@ router.patch('/me/password', validate(changePasswordSchema), async (req, res, ne
       throw new AppError(400, 'كلمة المرور الجديدة هي نفسها الحالية', 'SAME_PASSWORD');
     }
     const hash = await bcrypt.hash(newPassword, config.bcryptRounds);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -62,17 +64,19 @@ router.patch('/me', async (req, res, next) => {
     if (!name || !String(name).trim()) {
       throw new AppError(400, 'الاسم مطلوب', 'NAME_REQUIRED');
     }
-    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(String(name).trim().slice(0, 80), req.user.id);
-    const user = db.prepare('SELECT id, name, email, role, persona, specialist_code, can_manage, is_active, shift_start, shift_end, hourly_rate, manual_deficit, created_at FROM users WHERE id = ?').get(req.user.id);
+    await db.prepare('UPDATE users SET name = ? WHERE id = ?').run(String(name).trim().slice(0, 80), req.user.id);
+    const user = await db.prepare('SELECT id, name, email, role, persona, specialist_code, can_manage, is_active, shift_start, shift_end, hourly_rate, manual_deficit, created_at FROM users WHERE id = ?').get(req.user.id);
     res.json({ user: sanitizeUser(user) });
   } catch (err) {
     next(err);
   }
 });
 
-router.get(['/admin/income', '/admin/cashier'], requireAdmin, (req, res) => {
-  const { from, to } = req.query;
-  res.json(projectService.adminOverview({ from, to }));
+router.get(['/admin/income', '/admin/cashier'], requireAdmin, async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    res.json(await projectService.adminOverview({ from, to }));
+  } catch(err) { next(err); }
 });
 
 function toCsv(rows, headers) {
@@ -85,52 +89,65 @@ function toCsv(rows, headers) {
   return '\uFEFF' + lines.join('\r\n');
 }
 
-router.get(['/admin/income.csv', '/admin/cashier.csv'], requireAdmin, (req, res) => {
-  const { from, to } = req.query;
-  const data = projectService.adminOverview({ from, to });
-  const rows = data.perUser.map((u) => ({
-    name: u.name, role: u.role, projects: u.projects, shift_count: u.shift_count,
-    earned_confirmed: u.earned_confirmed, earned_total: u.earned_total,
-  }));
-  const csv = toCsv(rows, ['name', 'role', 'projects', 'shift_count', 'earned_confirmed', 'earned_total']);
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="cashier-${from || 'all'}.csv"`);
-  res.send(csv);
+router.get(['/admin/income.csv', '/admin/cashier.csv'], requireAdmin, async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const data = await projectService.adminOverview({ from, to });
+    const rows = data.perUser.map((u) => ({
+      name: u.name, role: u.role, projects: u.projects, shift_count: u.shift_count,
+      earned_confirmed: u.earned_confirmed, earned_total: u.earned_total,
+    }));
+    const csv = toCsv(rows, ['name', 'role', 'projects', 'shift_count', 'earned_confirmed', 'earned_total']);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="cashier-${from || 'all'}.csv"`);
+    res.send(csv);
+  } catch(err) { next(err); }
 });
 
-router.get('/admin/users', requireAdmin, (req, res) => {
-  const users = db
-    .prepare(
-      `SELECT u.id, u.name, u.email, u.role, u.persona, u.specialist_code, u.is_active, u.shift_start, u.shift_end, u.hourly_rate, u.manual_deficit, u.created_at,
-              (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS project_count,
-              (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes,
-              (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.user_id = u.id AND p.status = 'done' AND p.is_confirmed = 1) AS earned_confirmed
-       FROM users u ORDER BY u.created_at DESC`
-    )
-    .all();
-  for (const u of users) {
-    const rate = Number(u.hourly_rate) || 0;
-    u.deficit_amount = Math.round((u.deficit_minutes / 60) * rate * 100) / 100;
-    u.manual_deficit = Number(u.manual_deficit) || 0;
-  }
-  res.json({ users });
+router.get('/admin/users', requireAdmin, async (req, res, next) => {
+  try {
+    const users = await db
+      .prepare(
+        `SELECT u.id, u.name, u.email, u.role, u.persona, u.specialist_code, u.is_active, u.shift_start, u.shift_end, u.hourly_rate, u.manual_deficit, u.created_at,
+                (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS project_count,
+                (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes,
+                (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.user_id = u.id AND p.status = 'done' AND p.is_confirmed = 1) AS earned_confirmed
+         FROM users u ORDER BY u.created_at DESC`
+      )
+      .all();
+    for (const u of users) {
+      const rate = Number(u.hourly_rate) || 0;
+      u.deficit_amount = Math.round((u.deficit_minutes / 60) * rate * 100) / 100;
+      u.manual_deficit = Number(u.manual_deficit) || 0;
+    }
+    res.json({ users });
+  } catch(err) { next(err); }
 });
 
 router.post('/admin/users', requireAdmin, validate(adminCreateUserSchema), async (req, res, next) => {
   try {
     const { name, email, password, role, persona, specialist_code, can_manage, shift_start, shift_end, hourly_rate, manual_deficit } = req.body;
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
     if (existing) {
       throw new AppError(409, 'هذا البريد موجود بالفعل', 'EMAIL_TAKEN');
     }
     const cleanSpecialistCode = specialist_code ? specialist_code.trim().toUpperCase() : null;
     if (cleanSpecialistCode && (persona || 'specialist') !== 'specialist') throw new AppError(400, 'كود المختص مخصص للمختصين فقط', 'SPECIALIST_CODE_ROLE_MISMATCH');
-    if (cleanSpecialistCode && db.prepare('SELECT id FROM users WHERE UPPER(specialist_code) = ?').get(cleanSpecialistCode)) throw new AppError(409, 'كود المختص مستخدم بالفعل', 'SPECIALIST_CODE_TAKEN');
+    if (cleanSpecialistCode && await db.prepare('SELECT id FROM users WHERE UPPER(specialist_code) = ?').get(cleanSpecialistCode)) throw new AppError(409, 'كود المختص مستخدم بالفعل', 'SPECIALIST_CODE_TAKEN');
+    
+    let nextSpecCode = cleanSpecialistCode;
+    if (!nextSpecCode && (persona || 'specialist') === 'specialist') {
+       const userCountRes = await db.prepare('SELECT COUNT(*) as c FROM users').get();
+       nextSpecCode = `SPEC-${(userCountRes?.c || 0) + 1}`;
+    }
+
     const hash = await bcrypt.hash(password, config.bcryptRounds);
-    const info = db
+    const info = await db
       .prepare('INSERT INTO users (name, email, password_hash, role, persona, specialist_code, can_manage, shift_start, shift_end, hourly_rate, manual_deficit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(name.trim(), email.toLowerCase(), hash, role || 'user', persona || 'specialist', cleanSpecialistCode || ((persona || 'specialist') === 'specialist' ? `SPEC-${db.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?').get('users')?.seq + 1}` : null), can_manage ? 1 : 0, shift_start || null, shift_end || null, Number(hourly_rate) || 0, Number(manual_deficit) || 0);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+      .run(name.trim(), email.toLowerCase(), hash, role || 'user', persona || 'specialist', nextSpecCode, can_manage ? 1 : 0, shift_start || null, shift_end || null, Number(hourly_rate) || 0, Number(manual_deficit) || 0);
+    
+    const insertedId = info.lastInsertRowid || (await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase())).id;
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(insertedId);
     res.status(201).json({ user: sanitizeUser(user) });
   } catch (err) {
     next(err);
@@ -140,10 +157,10 @@ router.post('/admin/users', requireAdmin, validate(adminCreateUserSchema), async
 router.patch('/admin/users/:id', requireAdmin, validate(adminUpdateUserSchema), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) throw new AppError(404, 'المستخدم غير موجود', 'USER_NOT_FOUND');
 
-    const next = {
+    const updateData = {
       name: req.body.name !== undefined ? req.body.name.trim() : user.name,
       email: req.body.email !== undefined ? req.body.email.toLowerCase() : user.email,
       role: req.body.role !== undefined ? req.body.role : user.role,
@@ -160,44 +177,48 @@ router.patch('/admin/users/:id', requireAdmin, validate(adminUpdateUserSchema), 
     };
 
     if (req.body.email && req.body.email.toLowerCase() !== user.email) {
-      const dup = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(next.email, id);
+      const dup = await db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(updateData.email, id);
       if (dup) throw new AppError(409, 'هذا البريد موجود بالفعل', 'EMAIL_TAKEN');
     }
-    if (next.specialist_code && next.persona !== 'specialist') next.specialist_code = null;
-    if (next.specialist_code && next.specialist_code !== user.specialist_code && db.prepare('SELECT id FROM users WHERE UPPER(specialist_code) = ? AND id != ?').get(next.specialist_code, id)) throw new AppError(409, 'كود المختص مستخدم بالفعل', 'SPECIALIST_CODE_TAKEN');
+    if (updateData.specialist_code && updateData.persona !== 'specialist') updateData.specialist_code = null;
+    if (updateData.specialist_code && updateData.specialist_code !== user.specialist_code && await db.prepare('SELECT id FROM users WHERE UPPER(specialist_code) = ? AND id != ?').get(updateData.specialist_code, id)) throw new AppError(409, 'كود المختص مستخدم بالفعل', 'SPECIALIST_CODE_TAKEN');
 
     if (req.body.password) {
       const hash = await bcrypt.hash(req.body.password, config.bcryptRounds);
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET name = ?, email = ?, role = ?, persona = ?, specialist_code = ?, can_manage = ?, is_active = ?, shift_start = ?, shift_end = ?, hourly_rate = ?, manual_deficit = ?, password_hash = ? WHERE id = ?'
-      ).run(next.name, next.email, next.role, next.persona, next.specialist_code, next.can_manage, next.is_active, next.shift_start, next.shift_end, next.hourly_rate, next.manual_deficit, hash, id);
+      ).run(updateData.name, updateData.email, updateData.role, updateData.persona, updateData.specialist_code, updateData.can_manage, updateData.is_active, updateData.shift_start, updateData.shift_end, updateData.hourly_rate, updateData.manual_deficit, hash, id);
     } else {
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET name = ?, email = ?, role = ?, persona = ?, specialist_code = ?, can_manage = ?, is_active = ?, shift_start = ?, shift_end = ?, hourly_rate = ?, manual_deficit = ? WHERE id = ?'
-      ).run(next.name, next.email, next.role, next.persona, next.specialist_code, next.can_manage, next.is_active, next.shift_start, next.shift_end, next.hourly_rate, next.manual_deficit, id);
+      ).run(updateData.name, updateData.email, updateData.role, updateData.persona, updateData.specialist_code, updateData.can_manage, updateData.is_active, updateData.shift_start, updateData.shift_end, updateData.hourly_rate, updateData.manual_deficit, id);
     }
 
-    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     res.json({ user: sanitizeUser(updated) });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete('/admin/users/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  if (id === req.user.id) {
-    throw new AppError(400, 'لا يمكنك حذف حسابك أنت', 'CANNOT_DELETE_SELF');
-  }
-  const info = db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  if (info.changes === 0) throw new AppError(404, 'المستخدم غير موجود', 'USER_NOT_FOUND');
-  res.json({ deleted: true });
+router.delete('/admin/users/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (id === req.user.id) {
+      throw new AppError(400, 'لا يمكنك حذف حسابك أنت', 'CANNOT_DELETE_SELF');
+    }
+    const info = await db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    if (info.changes === 0) throw new AppError(404, 'المستخدم غير موجود', 'USER_NOT_FOUND');
+    res.json({ deleted: true });
+  } catch(err) { next(err); }
 });
 
-router.post('/projects/:id/confirm', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) throw new AppError(400, 'معرف غير صحيح', 'INVALID_ID');
-  res.json({ project: projectService.confirmProject(req.user.id, id) });
+router.post('/projects/:id/confirm', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new AppError(400, 'معرف غير صحيح', 'INVALID_ID');
+    res.json({ project: await projectService.confirmProject(req.user.id, id) });
+  } catch(err) { next(err); }
 });
 
 module.exports = router;
