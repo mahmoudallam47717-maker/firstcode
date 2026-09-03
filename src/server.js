@@ -20,7 +20,7 @@ app.set('trust proxy', config.trustProxy || 'loopback');
 app.use(helmet());
 app.use(
   cors({
-    origin: config.corsOrigin.length > 0 ? config.corsOrigin : false,
+    origin: config.corsOrigin && config.corsOrigin.length > 0 ? config.corsOrigin : '*', // تعديل بسيط لـ Vercel
     credentials: true,
   })
 );
@@ -29,17 +29,21 @@ app.use(express.json({ limit: '1mb' }));
 app.use(morgan(config.logLevel, { skip: () => config.env === 'test' }));
 
 const globalLimiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
+  windowMs: config.rateLimit ? config.rateLimit.windowMs : 15 * 60 * 1000,
+  max: config.rateLimit ? config.rateLimit.max : 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests', code: 'RATE_LIMITED' },
 });
 app.use('/api', globalLimiter);
 
-app.get('/health', (req, res) => {
-  const alive = db.prepare('SELECT 1 AS ok').get();
-  res.status(alive ? 200 : 503).json({ status: alive ? 'ok' : 'degraded', uptime: process.uptime() });
+app.get('/health', async (req, res) => { // تحويل الدالة لـ async عشان PostgreSQL
+  try {
+    const alive = await db.prepare('SELECT 1 AS ok').get();
+    res.status(alive ? 200 : 503).json({ status: alive ? 'ok' : 'degraded', uptime: process.uptime() });
+  } catch (err) {
+    res.status(503).json({ status: 'degraded', error: err.message });
+  }
 });
 
 app.use('/api/auth', authRoutes);
@@ -58,29 +62,5 @@ app.get('*', (req, res, next) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-function start() {
-  const server = app.listen(config.port, config.host, () => {
-    console.log(`[TaskFlow] listening on http://${config.host}:${config.port} (${config.env})`);
-  });
-
-  const shutdown = (signal) => {
-    console.log(`[TaskFlow] ${signal} received, shutting down gracefully...`);
-    server.close(() => {
-      db.close();
-      process.exit(0);
-    });
-    setTimeout(() => process.exit(1), 10000).unref();
-  };
-
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
-
-  return server;
-}
-
-if (require.main === module) {
-  start();
-}
-
-module.exports = { app, start };
+// حذفنا دالة start() لأن Vercel هو اللي بيشغل السيرفر بنفسه (Serverless)
 module.exports = app;
