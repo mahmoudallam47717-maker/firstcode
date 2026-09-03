@@ -17,18 +17,26 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-router.get('/me', (req, res) => {
-  res.json({ user: sanitizeUser(req.user) });
+router.get('/me', async (req, res, next) => {
+  try {
+    res.json({ user: await sanitizeUser(req.user) });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get('/specialists', async (req, res) => {
-  const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'specialist' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
-  res.json({ users });
+router.get('/specialists', async (req, res, next) => {
+  try {
+    const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'specialist' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
+    res.json({ users });
+  } catch(err) { next(err); }
 });
 
-router.get('/intermediaries', async (req, res) => {
-  const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'intermediary' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
-  res.json({ users });
+router.get('/intermediaries', async (req, res, next) => {
+  try {
+    const users = await db.prepare("SELECT id, name, email FROM users WHERE persona = 'intermediary' AND is_active = 1 ORDER BY name COLLATE NOCASE").all();
+    res.json({ users });
+  } catch(err) { next(err); }
 });
 
 router.post('/projects/:id/approve', async (req, res, next) => {
@@ -66,7 +74,7 @@ router.patch('/me', async (req, res, next) => {
     }
     await db.prepare('UPDATE users SET name = ? WHERE id = ?').run(String(name).trim().slice(0, 80), req.user.id);
     const user = await db.prepare('SELECT id, name, email, role, persona, specialist_code, can_manage, is_active, shift_start, shift_end, hourly_rate, manual_deficit, created_at FROM users WHERE id = ?').get(req.user.id);
-    res.json({ user: sanitizeUser(user) });
+    res.json({ user: await sanitizeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -148,7 +156,7 @@ router.post('/admin/users', requireAdmin, validate(adminCreateUserSchema), async
     
     const insertedId = info.lastInsertRowid || (await db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase())).id;
     const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(insertedId);
-    res.status(201).json({ user: sanitizeUser(user) });
+    res.status(201).json({ user: await sanitizeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -195,7 +203,7 @@ router.patch('/admin/users/:id', requireAdmin, validate(adminUpdateUserSchema), 
     }
 
     const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-    res.json({ user: sanitizeUser(updated) });
+    res.json({ user: await sanitizeUser(updated) });
   } catch (err) {
     next(err);
   }
