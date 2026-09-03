@@ -93,14 +93,10 @@ function playNotificationSound() {
     
     osc.start(audioCtx.currentTime);
     osc.stop(audioCtx.currentTime + 0.4);
-  } catch (e) {
-    console.error("Audio block: ", e);
-  }
+  } catch (e) {}
 }
 
-// متغيرات لمنع تكرار الإشعارات
 let notifInterval = null;
-let shownNotifs = new Set();
 let isCheckingNotifs = false;
 
 async function checkNotifications() {
@@ -110,25 +106,28 @@ async function checkNotifications() {
     const res = await api('GET', '/api/users/notifications');
     if (res.status === 200 && res.data.notifications && res.data.notifications.length > 0) {
       
-      // اختيار الإشعارات الجديدة فقط اللي لسه معملناش ليها معالجة
-      const newNotifs = res.data.notifications.filter(n => !shownNotifs.has(n.id));
+      let playSound = false;
+      let hasNew = false;
       
-      if (newNotifs.length > 0) {
-        playNotificationSound(); // الصوت يشتغل مرة واحدة بس للدفعة دي
-        
-        for (const n of newNotifs) {
-          shownNotifs.add(n.id); // تسجيل إن الإشعار ظهر عشان ميتكررش
+      for (const n of res.data.notifications) {
+        // التحقق القوي: استخدام localStorage بيضمن إن الإشعار مستحيل يتكرر 
+        // حتى لو كنت فاتح المنصة من أكتر من تاب أو متصفح في نفس الوقت
+        const notifKey = `notif_done_${n.id}`;
+        if (!localStorage.getItem(notifKey)) {
+          localStorage.setItem(notifKey, 'true');
+          playSound = true;
+          hasNew = true;
+          
           toast('🔔 ' + n.message, 'success');
           
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('مكتبنا', { body: n.message }); // إشعار نظام برا المتصفح
+            new Notification('مكتبنا', { body: n.message });
           }
-          
-          // تأكيد القراءة للسيرفر
-          await api('POST', `/api/users/notifications/${n.id}/read`);
         }
-        refreshAll(); 
       }
+      
+      if (playSound) playNotificationSound();
+      if (hasNew) refreshAll(); 
     }
   } catch (e) {} finally {
     isCheckingNotifs = false;
@@ -193,7 +192,6 @@ function logout() {
   state.token = null; state.user = null;
   sessionStorage.removeItem('taskflow_token');
   if (notifInterval) clearInterval(notifInterval);
-  shownNotifs.clear(); // تفريغ الذاكرة
   showAuth();
 }
 

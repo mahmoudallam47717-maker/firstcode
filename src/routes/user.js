@@ -233,14 +233,14 @@ router.post('/projects/:id/confirm', async (req, res, next) => {
 router.get('/notifications', async (req, res, next) => {
   try {
     const notifications = await db.prepare('SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at ASC').all(req.user.id);
+    
+    // التعديل السحري: بمجرد ما السيرفر يشوف إن ليك إشعار غير مقروء وبيجهزه عشان يبعتهولك،
+    // بيعمل تحديث فوري ويخليه مقروء، عشان لو المتصفح سأل تاني ميعتبروش إشعار جديد أبداً.
+    if (notifications && notifications.length > 0) {
+      await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0').run(req.user.id);
+    }
+    
     res.json({ notifications });
-  } catch (err) { next(err); }
-});
-
-router.post('/notifications/:id/read', async (req, res, next) => {
-  try {
-    await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
-    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
