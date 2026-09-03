@@ -229,4 +229,19 @@ router.post('/projects/:id/confirm', async (req, res, next) => {
   } catch(err) { next(err); }
 });
 
+// -- مسارات الإشعارات --
+router.get('/notifications', async (req, res, next) => {
+  try {
+    const notifications = await db.prepare('SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at ASC').all(req.user.id);
+    res.json({ notifications });
+  } catch (err) { next(err); }
+});
+
+router.post('/notifications/:id/read', async (req, res, next) => {
+  try {
+    await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -48,7 +48,7 @@ async function api(method, url, body) {
 
 const apiErr = (res, fallback) => (res && res.data && res.data.error) || fallback || 'حدث خطأ ما';
 
-/* ==================== Toast ==================== */
+/* ==================== Toast & Notifications ==================== */
 let toastTimer;
 function toast(msg, type = 'info') {
   const t = $('#toast');
@@ -56,7 +56,41 @@ function toast(msg, type = 'info') {
   t.className = `toast ${type}`;
   t.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.classList.add('hidden'); }, 3000);
+  toastTimer = setTimeout(() => { t.classList.add('hidden'); }, 4000);
+}
+
+// دالة إصدار صوت الإشعار
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 1);
+    osc.start();
+    osc.stop(ctx.currentTime + 1);
+  } catch (e) {}
+}
+
+let notifInterval = null;
+async function checkNotifications() {
+  if (!state.token || !$('#view-app') || $('#view-app').classList.contains('hidden')) return;
+  try {
+    const res = await api('GET', '/api/users/notifications');
+    if (res.status === 200 && res.data.notifications && res.data.notifications.length > 0) {
+      playNotificationSound();
+      for (const n of res.data.notifications) {
+        toast('🔔 ' + n.message, 'success');
+        await api('POST', `/api/users/notifications/${n.id}/read`);
+      }
+      refreshAll(); // تحديث القوائم تلقائياً لما يوصل إشعار
+    }
+  } catch (e) {}
 }
 
 /* ==================== Auth ==================== */
@@ -116,6 +150,7 @@ authToggleBtn.addEventListener('click', () => setAuthMode(authMode === 'login' ?
 function logout() {
   state.token = null; state.user = null;
   sessionStorage.removeItem('taskflow_token');
+  if (notifInterval) clearInterval(notifInterval);
   showAuth();
 }
 
@@ -329,7 +364,6 @@ const projectModal = $('#project-modal');
 $('#new-project-btn').addEventListener('click', () => openProjectModal());
 $$('#project-modal [data-close]').forEach((el) => el.addEventListener('click', () => closeProjectModal()));
 
-// إظهار وإخفاء خانة "أخرى" لما تغير القائمة
 $('#project-type').addEventListener('change', (e) => {
   $('#project-type-other').classList.toggle('hidden', e.target.value !== 'other');
 });
@@ -368,7 +402,6 @@ function openProjectModal(id) {
     $('#project-due').value = project.due_date || '';
     $('#project-due-time').value = project.delivery_time || '';
     
-    // التعامل مع نوع المشروع المخصص
     if (TYPE_LABELS[project.project_type]) {
       $('#project-type').value = project.project_type;
       $('#project-type-other').classList.add('hidden');
@@ -410,7 +443,6 @@ $('#project-form').addEventListener('submit', async (e) => {
   const err = $('#project-error');
   err.classList.add('hidden');
   
-  // دمج نوع المشروع
   let finalProjectType = $('#project-type').value;
   if (finalProjectType === 'other') {
     finalProjectType = $('#project-type-other').value.trim() || 'other';
@@ -1078,6 +1110,11 @@ async function enterApp() {
   const adminOnlyNav = ['income', 'team'];
   $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((b) => { b.classList.toggle('hidden', adminOnlyNav.includes(b.dataset.nav) && !isAdmin()); });
   refreshAdminTools(); await refreshAll(); showPage('dashboard'); void renderRecent;
+  
+  // تشغيل مراقب الإشعارات كل 7 ثواني (السطرين دول هما اللي بيعملوا السحر)
+  if (notifInterval) clearInterval(notifInterval);
+  notifInterval = setInterval(checkNotifications, 7000);
+  checkNotifications();
 }
 
 /* ==================== Init ==================== */

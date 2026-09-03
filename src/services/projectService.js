@@ -17,6 +17,14 @@ const CURRENCY_LABELS = { egp: 'جنيه مصري', sar: 'ريال سعودي', 
 const CURRENCY_SYMBOLS = { egp: 'ج.م', sar: 'ر.س', usd: '$' };
 const normalizeSpecialistCode = (value) => String(value || '').trim().toUpperCase();
 
+// دالة إرسال الإشعار
+async function notifyUser(userId, message) {
+  if (!userId) return;
+  try {
+    await db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(userId, message);
+  } catch (e) { console.error('Notification error:', e); }
+}
+
 async function hideIncomeForClient(project, userId) {
   const user = await db.prepare('SELECT persona, role, can_manage FROM users WHERE id = ?').get(userId);
   const visible = !!user && (user.role === 'admin' || user.can_manage || user.persona === 'intermediary' || user.persona === 'specialist');
@@ -147,6 +155,11 @@ async function createProject(userId, data) {
     );
     
   const insertedId = info.lastInsertRowid || (await db.prepare('SELECT id FROM projects WHERE code = ?').get(codeVal)).id;
+  
+  if (effectiveExecutorId && effectiveExecutorId !== userId) {
+    await notifyUser(effectiveExecutorId, `تم تكليفك بمشروع جديد بانتظار اعتمادك: ${title.trim()}`);
+  }
+
   return await getScoped(userId, insertedId);
 }
 
@@ -204,6 +217,14 @@ async function updateProject(userId, projectId, patch, opts = {}) {
      WHERE id = ?`
   ).run(nextData.code, nextData.title, nextData.project_type, nextData.amount, nextData.paid_amount, nextData.currency, nextData.status, nextData.notes, nextData.shift_id || null, nextData.intermediary_id || null, nextData.executor_id || null, nextData.phone || '', nextData.client_name || '', nextData.due_date || null, nextData.delivery_time || null, projectId);
 
+  if (patch.status && patch.status !== current.status) {
+    const targetId = current.intermediary_id || current.user_id;
+    if (targetId && targetId !== userId) {
+      const statusAr = patch.status === 'done' ? 'منجز' : (patch.status === 'in_progress' ? 'قيد التنفيذ' : 'معلق');
+      await notifyUser(targetId, `تحديث: تم تغيير حالة مشروع "${current.title}" إلى ${statusAr}`);
+    }
+  }
+
   return await getScoped(userId, projectId, { admin });
 }
 
@@ -234,6 +255,12 @@ async function confirmProject(userId, projectId) {
     throw new AppError(403, 'تأكيد الدخل من اختصاص المختص المنفذ فقط', 'SPECIALIST_CONFIRMATION_REQUIRED');
   }
   await db.prepare('UPDATE projects SET is_confirmed = 1 WHERE id = ?').run(projectId);
+  
+  const targetId = project.intermediary_id || project.user_id;
+  if (targetId && targetId !== userId) {
+    await notifyUser(targetId, `تم تأكيد استلام الدخل لمشروع: ${project.title}`);
+  }
+
   return await getScoped(userId, projectId);
 }
 
@@ -244,6 +271,12 @@ async function approveProject(userId, projectId) {
     throw new AppError(403, 'اعتماد الطلب من اختصاص المختص المنفذ فقط', 'SPECIALIST_APPROVAL_REQUIRED');
   }
   await db.prepare("UPDATE projects SET request_status = 'approved', status = 'in_progress', approved_at = CURRENT_TIMESTAMP, approved_by = ? WHERE id = ?").run(userId, projectId);
+  
+  const targetId = project.intermediary_id || project.user_id;
+  if (targetId && targetId !== userId) {
+    await notifyUser(targetId, `المختص اعتمد الطلب وبدأ التنفيذ: ${project.title}`);
+  }
+
   return await getScoped(userId, projectId);
 }
 
