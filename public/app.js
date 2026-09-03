@@ -59,7 +59,6 @@ function toast(msg, type = 'info') {
   toastTimer = setTimeout(() => { t.classList.add('hidden'); }, 4000);
 }
 
-// فك قفل الصوت في المتصفح بعد أول تفاعل للمستخدم
 let audioCtx = null;
 function unlockAudio() {
   if (!audioCtx) {
@@ -72,7 +71,6 @@ function unlockAudio() {
 window.addEventListener('click', unlockAudio, { once: true });
 window.addEventListener('touchstart', unlockAudio, { once: true });
 
-// دالة إصدار صوت الإشعار المزدوج
 function playNotificationSound() {
   try {
     if (!audioCtx) unlockAudio();
@@ -84,8 +82,8 @@ function playNotificationSound() {
     gain.connect(audioCtx.destination);
     
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // نغمة أولى
-    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // نغمة تانية
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); 
     
     gain.gain.setValueAtTime(0, audioCtx.currentTime);
     gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
@@ -100,26 +98,41 @@ function playNotificationSound() {
   }
 }
 
+// متغيرات لمنع تكرار الإشعارات
 let notifInterval = null;
+let shownNotifs = new Set();
+let isCheckingNotifs = false;
+
 async function checkNotifications() {
-  if (!state.token || !$('#view-app') || $('#view-app').classList.contains('hidden')) return;
+  if (!state.token || isCheckingNotifs || !$('#view-app') || $('#view-app').classList.contains('hidden')) return;
+  isCheckingNotifs = true;
   try {
     const res = await api('GET', '/api/users/notifications');
     if (res.status === 200 && res.data.notifications && res.data.notifications.length > 0) {
-      playNotificationSound();
-      for (const n of res.data.notifications) {
-        toast('🔔 ' + n.message, 'success');
+      
+      // اختيار الإشعارات الجديدة فقط اللي لسه معملناش ليها معالجة
+      const newNotifs = res.data.notifications.filter(n => !shownNotifs.has(n.id));
+      
+      if (newNotifs.length > 0) {
+        playNotificationSound(); // الصوت يشتغل مرة واحدة بس للدفعة دي
         
-        // إشعار المتصفح الخارجي (موبايل و كمبيوتر)
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('مكتبنا - إشعار جديد', { body: n.message, requireInteraction: true });
+        for (const n of newNotifs) {
+          shownNotifs.add(n.id); // تسجيل إن الإشعار ظهر عشان ميتكررش
+          toast('🔔 ' + n.message, 'success');
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('مكتبنا', { body: n.message }); // إشعار نظام برا المتصفح
+          }
+          
+          // تأكيد القراءة للسيرفر
+          await api('POST', `/api/users/notifications/${n.id}/read`);
         }
-        
-        await api('POST', `/api/users/notifications/${n.id}/read`);
+        refreshAll(); 
       }
-      refreshAll(); 
     }
-  } catch (e) {}
+  } catch (e) {} finally {
+    isCheckingNotifs = false;
+  }
 }
 
 /* ==================== Auth ==================== */
@@ -180,6 +193,7 @@ function logout() {
   state.token = null; state.user = null;
   sessionStorage.removeItem('taskflow_token');
   if (notifInterval) clearInterval(notifInterval);
+  shownNotifs.clear(); // تفريغ الذاكرة
   showAuth();
 }
 
@@ -1140,12 +1154,10 @@ async function enterApp() {
   $$('#topnav .nav-item, #bottom-nav .bn-item').forEach((b) => { b.classList.toggle('hidden', adminOnlyNav.includes(b.dataset.nav) && !isAdmin()); });
   refreshAdminTools(); await refreshAll(); showPage('dashboard'); void renderRecent;
   
-  // طلب صلاحيات الإشعارات من المتصفح (موبايل وكمبيوتر) أول ما يدخل المنصة
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
   
-  // مراقب الإشعارات يشتغل كل 7 ثواني (لو في إشعار هيعمل رنة ويحدث نفسه)
   if (notifInterval) clearInterval(notifInterval);
   notifInterval = setInterval(checkNotifications, 7000);
   checkNotifications();
