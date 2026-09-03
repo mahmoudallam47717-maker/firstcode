@@ -16,9 +16,14 @@ const authLimiter = rateLimit({
   message: { error: 'Too many authentication attempts, please try again later', code: 'RATE_LIMITED' },
 });
 
-router.get('/status', (req, res) => {
-  const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
-  res.json({ hasUsers: count > 0, registrationOpen: true, firstAccountIsOwner: count === 0 });
+router.get('/status', async (req, res) => { // ضفنا كلمة async هنا
+  try {
+    const row = await db.prepare('SELECT COUNT(*) AS c FROM users').get(); // ضفنا كلمة await هنا
+    const count = parseInt(row.c, 10);
+    res.json({ hasUsers: count > 0, registrationOpen: true, firstAccountIsOwner: count === 0 });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 router.post('/register', authLimiter, validate(registerSchema), async (req, res, next) => {
