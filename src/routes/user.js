@@ -119,7 +119,7 @@ router.get('/admin/users', requireAdmin, async (req, res, next) => {
         `SELECT u.id, u.name, u.email, u.role, u.persona, u.specialist_code, u.is_active, u.shift_start, u.shift_end, u.hourly_rate, u.manual_deficit, u.created_at,
                 (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS project_count,
                 (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes,
-                (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.user_id = u.id AND p.status = 'done' AND p.is_confirmed = 1) AS earned_confirmed
+                (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.user_id = u.id AND p.is_confirmed = 1) AS earned_confirmed
          FROM users u ORDER BY u.created_at DESC`
       )
       .all();

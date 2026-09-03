@@ -25,7 +25,7 @@ async function hideIncomeForClient(project, userId) {
       ? { ...project, phone: '', income_visible: true }
       : { ...project, income_visible: true };
   }
-  return { ...project, amount: null, currency: null, is_confirmed: null, phone: '', income_visible: false };
+  return { ...project, amount: null, paid_amount: null, currency: null, is_confirmed: null, phone: '', income_visible: false };
 }
 
 async function getScoped(userId, projectId, opts = {}) {
@@ -106,26 +106,22 @@ async function resolveSpecialistCode(code) {
 }
 
 async function createProject(userId, data) {
-  const { title, project_type, amount, currency, status, notes, shift_id, phone, client_name, code, due_date, delivery_time, executor_id, executor_code, intermediary_id } = data;
+  const { title, project_type, amount, paid_amount, currency, status, notes, shift_id, phone, client_name, code, due_date, delivery_time, executor_id, executor_code, intermediary_id } = data;
   const creator = await db.prepare('SELECT persona FROM users WHERE id = ?').get(userId);
+  
   if ((status || 'pending') !== 'pending') throw new AppError(400, 'الطلب يبدأ معلّقًا ويحدد المختص حالته', 'INITIAL_STATUS_MUST_BE_PENDING');
-  if (creator && creator.persona === 'client' && executor_id) {
-    throw new AppError(400, 'العميل يختار الوسيط فقط', 'CLIENT_CANNOT_ASSIGN_SPECIALIST');
-  }
-  if (creator && creator.persona === 'intermediary' && intermediary_id) {
-    throw new AppError(400, 'الوسيط يختار المختص فقط', 'INTERMEDIARY_CANNOT_ASSIGN_INTERMEDIARY');
-  }
-  if (creator && creator.persona === 'intermediary' && !executor_code) {
-    throw new AppError(400, 'اكتب كود المختص لتوجيه المشروع إليه', 'EXECUTOR_CODE_REQUIRED');
-  }
-  if (creator && creator.persona === 'intermediary' && executor_id) {
-    throw new AppError(400, 'استخدم كود المختص فقط', 'EXECUTOR_ID_NOT_ALLOWED');
-  }
+  if (creator && creator.persona === 'client' && executor_id) throw new AppError(400, 'العميل يختار الوسيط فقط', 'CLIENT_CANNOT_ASSIGN_SPECIALIST');
+  if (creator && creator.persona === 'intermediary' && intermediary_id) throw new AppError(400, 'الوسيط يختار المختص فقط', 'INTERMEDIARY_CANNOT_ASSIGN_INTERMEDIARY');
+  if (creator && creator.persona === 'intermediary' && !executor_code) throw new AppError(400, 'اكتب كود المختص لتوجيه المشروع إليه', 'EXECUTOR_CODE_REQUIRED');
+  if (creator && creator.persona === 'intermediary' && executor_id) throw new AppError(400, 'استخدم كود المختص فقط', 'EXECUTOR_ID_NOT_ALLOWED');
+  
   const effectiveIntermediaryId = intermediary_id || (creator && creator.persona === 'intermediary' ? userId : null);
   const codeExecutor = executor_code ? await resolveSpecialistCode(executor_code) : null;
   if (executor_code && !codeExecutor) throw new AppError(400, 'كود المختص غير صحيح أو غير متاح', 'INVALID_EXECUTOR_CODE');
+  
   const effectiveExecutorId = codeExecutor ? codeExecutor.id : (creator && creator.persona === 'specialist' ? userId : null);
   if (executor_code && !effectiveExecutorId) throw new AppError(400, 'لم يتم ربط الكود بمختص', 'EXECUTOR_NOT_LINKED');
+  
   if (effectiveIntermediaryId) {
     const intermediary = await db.prepare("SELECT id FROM users WHERE id = ? AND persona = 'intermediary' AND is_active = 1").get(effectiveIntermediaryId);
     if (!intermediary) throw new AppError(400, 'الوسيط المسؤول غير موجود أو غير متاح', 'INVALID_INTERMEDIARY');
@@ -134,21 +130,19 @@ async function createProject(userId, data) {
     const executor = await db.prepare("SELECT id FROM users WHERE id = ? AND persona = 'specialist' AND is_active = 1").get(effectiveExecutorId);
     if (!executor) throw new AppError(400, 'المختص المنفذ غير موجود أو غير متاح', 'INVALID_EXECUTOR');
   }
+  
   let codeVal = (code || '').trim();
-  if (!codeVal) {
-    codeVal = await generateProjectCode();
-  }
-  if (await db.prepare('SELECT id FROM projects WHERE code = ?').get(codeVal)) {
-    throw new AppError(409, 'هذا الكود مستخدم في مشروع آخر، اختر كودًا مختلفًا', 'CODE_TAKEN');
-  }
+  if (!codeVal) codeVal = await generateProjectCode();
+  if (await db.prepare('SELECT id FROM projects WHERE code = ?').get(codeVal)) throw new AppError(409, 'هذا الكود مستخدم في مشروع آخر، اختر كودًا مختلفًا', 'CODE_TAKEN');
+
   const info = await db
     .prepare(
-      `INSERT INTO projects (user_id, intermediary_id, executor_id, shift_id, code, title, project_type, amount, currency, status, notes, phone, client_name, due_date, delivery_time)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO projects (user_id, intermediary_id, executor_id, shift_id, code, title, project_type, amount, paid_amount, currency, status, notes, phone, client_name, due_date, delivery_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       userId, effectiveIntermediaryId, effectiveExecutorId, shift_id || null, codeVal, title.trim(),
-      project_type || 'other', Math.max(0, Number(amount) || 0), CURRENCIES.includes(currency) ? currency : 'egp',
+      project_type || 'other', Math.max(0, Number(amount) || 0), Math.max(0, Number(paid_amount) || 0), CURRENCIES.includes(currency) ? currency : 'egp',
       'pending', notes || '', phone || '', client_name || '', due_date || null, delivery_time || null
     );
     
@@ -160,33 +154,24 @@ async function updateProject(userId, projectId, patch, opts = {}) {
   const { admin } = opts;
   const current = await getScoped(userId, projectId, { admin });
   const creator = await db.prepare('SELECT persona FROM users WHERE id = ?').get(userId);
+  
   if (patch.status !== undefined && patch.status !== current.status) {
-    if (creator.persona !== 'specialist' || current.executor_id !== userId) {
-      throw new AppError(403, 'تغيير حالة التنفيذ من اختصاص المختص المنفذ فقط', 'SPECIALIST_STATUS_REQUIRED');
-    }
-    if (patch.status === 'done' && current.request_status !== 'approved') {
-      throw new AppError(400, 'اعتمد الطلب أولًا قبل تحويله إلى منجز', 'REQUEST_APPROVAL_REQUIRED');
-    }
+    if (creator.persona !== 'specialist' || current.executor_id !== userId) throw new AppError(403, 'تغيير حالة التنفيذ من اختصاص المختص المنفذ فقط', 'SPECIALIST_STATUS_REQUIRED');
+    if (patch.status === 'done' && current.request_status !== 'approved') throw new AppError(400, 'اعتمد الطلب أولًا قبل تحويله إلى منجز', 'REQUEST_APPROVAL_REQUIRED');
   }
-  if (!admin && creator && creator.persona === 'client' && patch.executor_id) {
-    throw new AppError(400, 'العميل يختار الوسيط فقط', 'CLIENT_CANNOT_ASSIGN_SPECIALIST');
-  }
-  if (!admin && creator && creator.persona === 'intermediary' && patch.intermediary_id) {
-    throw new AppError(400, 'الوسيط يختار المختص فقط', 'INTERMEDIARY_CANNOT_ASSIGN_INTERMEDIARY');
-  }
-  if (!admin && creator && creator.persona === 'intermediary' && patch.executor_id !== undefined) {
-    throw new AppError(400, 'استخدم كود المختص فقط', 'EXECUTOR_ID_NOT_ALLOWED');
-  }
+  
+  if (!admin && creator && creator.persona === 'client' && patch.executor_id) throw new AppError(400, 'العميل يختار الوسيط فقط', 'CLIENT_CANNOT_ASSIGN_SPECIALIST');
+  if (!admin && creator && creator.persona === 'intermediary' && patch.intermediary_id) throw new AppError(400, 'الوسيط يختار المختص فقط', 'INTERMEDIARY_CANNOT_ASSIGN_INTERMEDIARY');
+  if (!admin && creator && creator.persona === 'intermediary' && patch.executor_id !== undefined) throw new AppError(400, 'استخدم كود المختص فقط', 'EXECUTOR_ID_NOT_ALLOWED');
 
-  const allowed = ['title', 'project_type', 'amount', 'currency', 'status', 'notes', 'shift_id', 'intermediary_id', 'executor_id', 'phone', 'client_name', 'code', 'due_date', 'delivery_time'];
+  const allowed = ['title', 'project_type', 'amount', 'paid_amount', 'currency', 'status', 'notes', 'shift_id', 'intermediary_id', 'executor_id', 'phone', 'client_name', 'code', 'due_date', 'delivery_time'];
   const nextData = {};
+  
   for (const key of allowed) {
-    if (patch[key] !== undefined) {
-      nextData[key] = patch[key];
-    } else {
-      nextData[key] = current[key];
-    }
+    if (patch[key] !== undefined) nextData[key] = patch[key];
+    else nextData[key] = current[key];
   }
+  
   if (patch.executor_code !== undefined) {
     const executor = patch.executor_code
       ? await db.prepare("SELECT id FROM users WHERE UPPER(specialist_code) = ? AND persona = 'specialist' AND is_active = 1").get(normalizeSpecialistCode(patch.executor_code))
@@ -194,9 +179,12 @@ async function updateProject(userId, projectId, patch, opts = {}) {
     if (patch.executor_code && !executor) throw new AppError(400, 'كود المختص غير صحيح أو غير متاح', 'INVALID_EXECUTOR_CODE');
     nextData.executor_id = executor ? executor.id : null;
   }
+  
   nextData.amount = Math.max(0, Number(nextData.amount) || 0);
+  nextData.paid_amount = Math.max(0, Number(nextData.paid_amount) || 0);
   nextData.code = (nextData.code || '').trim();
   nextData.currency = CURRENCIES.includes(nextData.currency) ? nextData.currency : 'egp';
+  
   if (nextData.executor_id) {
     const executor = await db.prepare("SELECT id FROM users WHERE id = ? AND persona = 'specialist' AND is_active = 1").get(nextData.executor_id);
     if (!executor) throw new AppError(400, 'المختص المنفذ غير موجود أو غير متاح', 'INVALID_EXECUTOR');
@@ -212,9 +200,9 @@ async function updateProject(userId, projectId, patch, opts = {}) {
 
   await db.prepare(
     `UPDATE projects
-    SET code = ?, title = ?, project_type = ?, amount = ?, currency = ?, status = ?, notes = ?, shift_id = ?, intermediary_id = ?, executor_id = ?, phone = ?, client_name = ?, due_date = ?, delivery_time = ?, updated_at = CURRENT_TIMESTAMP
+    SET code = ?, title = ?, project_type = ?, amount = ?, paid_amount = ?, currency = ?, status = ?, notes = ?, shift_id = ?, intermediary_id = ?, executor_id = ?, phone = ?, client_name = ?, due_date = ?, delivery_time = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`
-  ).run(nextData.code, nextData.title, nextData.project_type, nextData.amount, nextData.currency, nextData.status, nextData.notes, nextData.shift_id || null, nextData.intermediary_id || null, nextData.executor_id || null, nextData.phone || '', nextData.client_name || '', nextData.due_date || null, nextData.delivery_time || null, projectId);
+  ).run(nextData.code, nextData.title, nextData.project_type, nextData.amount, nextData.paid_amount, nextData.currency, nextData.status, nextData.notes, nextData.shift_id || null, nextData.intermediary_id || null, nextData.executor_id || null, nextData.phone || '', nextData.client_name || '', nextData.due_date || null, nextData.delivery_time || null, projectId);
 
   return await getScoped(userId, projectId, { admin });
 }
@@ -267,8 +255,8 @@ async function myStats(userId) {
          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
-         SUM(CASE WHEN status = 'done' AND is_confirmed = 1 THEN amount ELSE 0 END) AS earned_confirmed,
-         SUM(CASE WHEN status = 'done' THEN amount ELSE 0 END) AS earned_total
+         SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END) AS earned_confirmed,
+         SUM(amount) AS earned_total
        FROM projects WHERE user_id = ? OR intermediary_id = ? OR executor_id = ?`
     )
      .get(userId, userId, userId);
@@ -310,10 +298,10 @@ async function adminOverview({ from, to } = {}) {
     .prepare(
       `SELECT u.id, u.name, u.email, u.role, u.hourly_rate, u.manual_deficit,
               COUNT(p.id) AS projects,
-              COALESCE(SUM(CASE WHEN p.status = 'done' AND p.is_confirmed = 1 THEN p.amount ELSE 0 END), 0) AS earned_confirmed,
-              COALESCE(SUM(CASE WHEN p.status = 'done' THEN p.amount ELSE 0 END), 0) AS earned_total,
-              COALESCE(SUM(CASE WHEN p.status = 'done' AND p.is_confirmed = 0 THEN p.amount ELSE 0 END), 0) AS pending_confirm_amount,
-              SUM(CASE WHEN p.status = 'done' AND p.is_confirmed = 0 THEN 1 ELSE 0 END) AS pending_confirm_count,
+              COALESCE(SUM(CASE WHEN p.is_confirmed = 1 THEN p.amount ELSE 0 END), 0) AS earned_confirmed,
+              COALESCE(SUM(p.amount), 0) AS earned_total,
+              COALESCE(SUM(CASE WHEN p.is_confirmed = 0 THEN p.amount ELSE 0 END), 0) AS pending_confirm_amount,
+              SUM(CASE WHEN p.is_confirmed = 0 THEN 1 ELSE 0 END) AS pending_confirm_count,
               (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes
        FROM users u
        LEFT JOIN projects p ON p.user_id = u.id ${dateC}
@@ -345,9 +333,9 @@ async function adminOverview({ from, to } = {}) {
   const totals = await db
     .prepare(
       `SELECT
-         COALESCE(SUM(CASE WHEN status = 'done' AND is_confirmed = 1 THEN amount ELSE 0 END), 0) AS earned_confirmed,
-         COALESCE(SUM(CASE WHEN status = 'done' THEN amount ELSE 0 END), 0) AS earned_total,
-         COALESCE(SUM(CASE WHEN status = 'done' AND is_confirmed = 0 THEN amount ELSE 0 END), 0) AS pending_confirm,
+         COALESCE(SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END), 0) AS earned_confirmed,
+         COALESCE(SUM(amount), 0) AS earned_total,
+         COALESCE(SUM(CASE WHEN is_confirmed = 0 THEN amount ELSE 0 END), 0) AS pending_confirm,
          COUNT(*) AS projects
        FROM projects p ${dateC ? 'WHERE 1=1' : ''} ${dateC}`
     )
@@ -357,7 +345,7 @@ async function adminOverview({ from, to } = {}) {
     .prepare(
       `SELECT p.id, p.title, p.project_type, p.amount, p.created_at, u.name AS user_name
        FROM projects p JOIN users u ON u.id = p.user_id
-       WHERE p.status = 'done' AND p.is_confirmed = 0 ${dateClause(from, to)}
+       WHERE p.is_confirmed = 0 ${dateClause(from, to)}
        ORDER BY p.created_at DESC`
     )
     .all(...params);

@@ -11,7 +11,7 @@ async function listShifts(userId) {
   return await db
     .prepare(
       `SELECT s.*,
-              (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.shift_id = s.id AND p.status = 'done' AND p.is_confirmed = 1) AS earned
+              (SELECT COALESCE(SUM(p.amount), 0) FROM projects p WHERE p.shift_id = s.id AND p.is_confirmed = 1) AS earned
        FROM shifts s
        WHERE s.user_id = ?
        ORDER BY s.started_at DESC`
@@ -60,7 +60,7 @@ async function endShift(userId) {
 
   const { earned } = await db
     .prepare(
-      "SELECT COALESCE(SUM(amount), 0) AS earned FROM projects WHERE shift_id = ? AND status = 'done' AND is_confirmed = 1"
+      "SELECT COALESCE(SUM(amount), 0) AS earned FROM projects WHERE shift_id = ? AND is_confirmed = 1"
     )
     .get(shift.id);
 
