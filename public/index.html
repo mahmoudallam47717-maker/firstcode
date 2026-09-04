@@ -10,6 +10,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     .modal-panel { max-height: 90dvh !important; overflow-y: auto !important; padding-bottom: 2rem !important; }
+    
+    /* تصميم الشات المرفق */
+    #chat-messages { max-height: 400px; overflow-y: auto; margin-bottom: 1rem; padding: 10px; background: #f8fafc; border-radius: 8px; }
+    .msg-box { margin-bottom: 10px; padding: 10px; border-radius: 8px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .msg-author { font-size: 0.8rem; font-weight: bold; color: #3b82f6; margin-bottom: 4px; }
+    .msg-text { font-size: 0.95rem; color: #334155; white-space: pre-wrap; }
+    .msg-file { margin-top: 5px; font-size: 0.85rem; }
+    .msg-file a { color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;}
+    .chat-input-row { display: flex; gap: 10px; align-items: flex-end; }
+    .chat-input-row textarea { flex: 1; resize: none; border-radius: 8px; padding: 8px; }
+    .file-upload-btn { background: #e2e8f0; color: #475569; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;}
+    .file-upload-btn:hover { background: #cbd5e1; }
+    .file-name-preview { font-size: 0.75rem; color: #64748b; margin-top: 4px; display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -203,13 +216,36 @@
           <input id="project-executor-code" type="text" maxlength="40" placeholder="اكتب كود المختص" autocomplete="off" />
           <small id="project-executor-match" class="field-hint"></small>
         </div>
-        <div class="field"><label for="project-notes">ملاحظات</label><textarea id="project-notes" rows="3" maxlength="2000"></textarea></div>
+        <div class="field"><label for="project-notes">ملاحظات الكارت السريعة</label><textarea id="project-notes" rows="3" maxlength="2000"></textarea></div>
         <div class="field-row">
           <div class="field"><label for="project-due">موعد التسليم (اليوم)</label><input id="project-due" type="date" /></div>
           <div class="field"><label for="project-due-time">موعد التسليم (الساعة)</label><input id="project-due-time" type="time" /></div>
         </div>
         <div id="project-error" class="alert alert-error hidden" role="alert"></div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" data-close>إلغاء</button><button type="submit" class="btn btn-primary">حفظ</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Chat/Workspace modal ===== -->
+  <div id="chat-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <h2 id="chat-modal-title">مساحة العمل والملفات</h2>
+      <div id="chat-messages">
+        <!-- الرسايل هتترسم هنا -->
+      </div>
+      <form id="chat-form" novalidate>
+        <input type="hidden" id="chat-project-id" />
+        <div class="chat-input-row">
+          <div>
+            <label for="chat-file" class="file-upload-btn" title="إرفاق ملف أو صورة">📎</label>
+            <input type="file" id="chat-file" class="hidden" />
+            <span id="chat-file-name" class="file-name-preview"></span>
+          </div>
+          <textarea id="chat-text" rows="2" placeholder="اكتب تعليماتك هنا..."></textarea>
+          <button type="submit" class="btn btn-primary" id="chat-send-btn">إرسال</button>
+        </div>
       </form>
     </div>
   </div>

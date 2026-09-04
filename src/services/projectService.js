@@ -15,20 +15,14 @@ const webpush = require('web-push');
 const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
 const privateVapidKey = 'cRqKX0W214j-9vE-fD_4XkC5k0P-yB_aX_7e_Uj-6wA';
 
-try {
-  webpush.setVapidDetails('mailto:admin@maktabna.com', publicVapidKey, privateVapidKey);
-} catch (e) {}
+try { webpush.setVapidDetails('mailto:admin@maktabna.com', publicVapidKey, privateVapidKey); } catch (e) {}
 
-// دالة إرسال الإشعار اللحظي للمستخدم (بتشغل الموبايل المقفول والمفتوح مرة واحدة)
 async function notifyUser(userId, message) {
   if (!userId) return;
   try {
     await db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(userId, message);
-    
-    // إرسال الإشعار فوراً للمنصة المفتوحة عبر Pusher ليعمل مرة واحدة فقط
     pusher.trigger('maktabna-channel', 'new-notification', { userId: userId, message: message });
 
-    // إرسال إشعار للمتصفحات المقفولة (الموبايل في الخلفية)
     const subs = await db.prepare('SELECT subscription FROM push_subscriptions WHERE user_id = ?').all(userId);
     const payload = JSON.stringify({ title: 'مكتبنا', message });
     for (const sub of subs) {
@@ -43,11 +37,42 @@ async function notifyUser(userId, message) {
   } catch (e) { console.error('Notification error:', e); }
 }
 
-// دالة تحديث الشاشات عند أي تغيير
 function triggerUpdate() {
   pusher.trigger('maktabna-channel', 'project-update', { time: Date.now() });
 }
-// ====================================================
+
+// ==== دوال مساحة العمل (الشات والملفات) ====
+async function getMessages(projectId) {
+  return await db.prepare(`
+    SELECT m.*, u.name as user_name, u.persona 
+    FROM project_messages m 
+    JOIN users u ON u.id = m.user_id 
+    WHERE m.project_id = ? 
+    ORDER BY m.created_at ASC
+  `).all(projectId);
+}
+
+async function addMessage(projectId, userId, message, fileUrl, fileName) {
+  const info = await db.prepare(
+    'INSERT INTO project_messages (project_id, user_id, message, file_url, file_name) VALUES (?, ?, ?, ?, ?)'
+  ).run(projectId, userId, message, fileUrl, fileName);
+
+  const msg = await db.prepare(`
+    SELECT m.*, u.name as user_name, u.persona 
+    FROM project_messages m JOIN users u ON u.id = m.user_id 
+    WHERE m.id = ?
+  `).get(info.lastInsertRowid);
+
+  pusher.trigger('maktabna-channel', 'new-chat-message', msg); // تحديث الشات فوراً
+
+  const p = await db.prepare('SELECT user_id, intermediary_id, executor_id, title FROM projects WHERE id = ?').get(projectId);
+  const parties = [p.user_id, p.intermediary_id, p.executor_id].filter(id => id && id !== userId);
+  for(const pid of parties) {
+     notifyUser(pid, `رسالة جديدة أو ملف في مشروع: ${p.title}`);
+  }
+  return msg;
+}
+// ===========================================
 
 const PROJECT_TYPES = [
   'research', 'report', 'presentation', 'website', 'landing', 'ecommerce', 'platform', 'webapp',
@@ -84,9 +109,7 @@ async function getScoped(userId, projectId, opts = {}) {
   const project = admin
     ? await db.prepare(sql).get(projectId)
     : await db.prepare(sql).get(projectId, userId, userId, userId);
-  if (!project) {
-    throw new AppError(404, 'المشروع غير موجود', 'PROJECT_NOT_FOUND');
-  }
+  if (!project) throw new AppError(404, 'المشروع غير موجود', 'PROJECT_NOT_FOUND');
   return await hideIncomeForClient(project, userId);
 }
 
@@ -101,18 +124,9 @@ async function listProjects(userId, query = {}, opts = {}) {
     conditions.push('(p.user_id = ? OR p.intermediary_id = ? OR p.executor_id = ?)');
     params.push(userId, userId, userId);
   }
-  if (status) {
-    conditions.push('status = ?');
-    params.push(status);
-  }
-  if (project_type) {
-    conditions.push('project_type = ?');
-    params.push(project_type);
-  }
-  if (code) {
-    conditions.push('code = ?');
-    params.push(code);
-  }
+  if (status) { conditions.push('status = ?'); params.push(status); }
+  if (project_type) { conditions.push('project_type = ?'); params.push(project_type); }
+  if (code) { conditions.push('code = ?'); params.push(code); }
   if (confirmed !== undefined && confirmed !== '') {
     conditions.push('is_confirmed = ?');
     params.push(confirmed === 'true' || confirmed === '1' ? 1 : 0);
@@ -126,11 +140,8 @@ async function listProjects(userId, query = {}, opts = {}) {
   const projects = await db
     .prepare(
       `SELECT p.*, owner.name AS owner_name, intermediary.name AS intermediary_name, executor.name AS executor_name, executor.specialist_code AS executor_code FROM projects p
-       LEFT JOIN users owner ON owner.id = p.user_id
-       LEFT JOIN users intermediary ON intermediary.id = p.intermediary_id
-       LEFT JOIN users executor ON executor.id = p.executor_id
-       ${where}
-       ORDER BY p.created_at DESC`
+       LEFT JOIN users owner ON owner.id = p.user_id LEFT JOIN users intermediary ON intermediary.id = p.intermediary_id LEFT JOIN users executor ON executor.id = p.executor_id
+       ${where} ORDER BY p.created_at DESC`
     )
     .all(...params);
     
@@ -200,7 +211,7 @@ async function createProject(userId, data) {
     await notifyUser(effectiveExecutorId, `تم تكليفك بمشروع جديد بانتظار اعتمادك: ${title.trim()}`);
   }
 
-  triggerUpdate(); // تحديث فوري لكل الأطراف
+  triggerUpdate();
   return await getScoped(userId, insertedId);
 }
 
@@ -249,18 +260,15 @@ async function updateProject(userId, projectId, patch, opts = {}) {
     }
   }
 
-  triggerUpdate(); // تحديث فوري لكل الأطراف
+  triggerUpdate();
   return await getScoped(userId, projectId, { admin });
 }
 
 async function deleteProject(userId, projectId, opts = {}) {
   const { admin } = opts;
   await getScoped(userId, projectId, { admin });
-  if (admin) {
-    await db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
-  } else {
-    await db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(projectId, userId);
-  }
+  if (admin) { await db.prepare('DELETE FROM projects WHERE id = ?').run(projectId); } 
+  else { await db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(projectId, userId); }
   triggerUpdate();
   return { deleted: true };
 }
@@ -287,11 +295,9 @@ async function confirmProject(userId, projectId) {
   await db.prepare('UPDATE projects SET is_confirmed = 1 WHERE id = ?').run(projectId);
   
   const targetId = project.intermediary_id || project.user_id;
-  if (targetId && targetId !== userId) {
-    await notifyUser(targetId, `تم تأكيد استلام الدخل لمشروع: ${project.title}`);
-  }
+  if (targetId && targetId !== userId) { await notifyUser(targetId, `تم تأكيد استلام الدخل لمشروع: ${project.title}`); }
 
-  triggerUpdate(); // تحديث فوري لكل الأطراف
+  triggerUpdate();
   return await getScoped(userId, projectId);
 }
 
@@ -304,45 +310,25 @@ async function approveProject(userId, projectId) {
   await db.prepare("UPDATE projects SET request_status = 'approved', status = 'in_progress', approved_at = CURRENT_TIMESTAMP, approved_by = ? WHERE id = ?").run(userId, projectId);
   
   const targetId = project.intermediary_id || project.user_id;
-  if (targetId && targetId !== userId) {
-    await notifyUser(targetId, `المختص اعتمد الطلب وبدأ التنفيذ: ${project.title}`);
-  }
+  if (targetId && targetId !== userId) { await notifyUser(targetId, `المختص اعتمد الطلب وبدأ التنفيذ: ${project.title}`); }
 
-  triggerUpdate(); // تحديث فوري لكل الأطراف
+  triggerUpdate();
   return await getScoped(userId, projectId);
 }
 
 async function myStats(userId) {
-  const row = await db
-    .prepare(
-      `SELECT
-         COUNT(*) AS total,
-         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
-         SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
-         SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
-         SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END) AS earned_confirmed,
-         SUM(amount) AS earned_total
-       FROM projects WHERE user_id = ? OR intermediary_id = ? OR executor_id = ?`
-    )
-     .get(userId, userId, userId);
-  const shiftRow = await db
-    .prepare('SELECT COALESCE(SUM(deficit_minutes), 0) AS deficit_minutes FROM shifts WHERE user_id = ?')
-    .get(userId);
+  const row = await db.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending, SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done, SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END) AS earned_confirmed, SUM(amount) AS earned_total FROM projects WHERE user_id = ? OR intermediary_id = ? OR executor_id = ?`).get(userId, userId, userId);
+  const shiftRow = await db.prepare('SELECT COALESCE(SUM(deficit_minutes), 0) AS deficit_minutes FROM shifts WHERE user_id = ?').get(userId);
   const user = await db.prepare('SELECT hourly_rate, manual_deficit FROM users WHERE id = ?').get(userId);
   const persona = await db.prepare('SELECT persona FROM users WHERE id = ?').get(userId);
   const deficit_minutes = shiftRow.deficit_minutes || 0;
   const rate = Number(user && user.hourly_rate) || 0;
   const deficit_amount = Math.round((deficit_minutes / 60) * rate * 100) / 100;
   return {
-    total: row.total || 0,
-    pending: row.pending || 0,
-    in_progress: row.in_progress || 0,
-    done: row.done || 0,
+    total: row.total || 0, pending: row.pending || 0, in_progress: row.in_progress || 0, done: row.done || 0,
     earned_confirmed: persona && persona.persona === 'client' ? 0 : (row.earned_confirmed || 0),
     earned_total: persona && persona.persona === 'client' ? 0 : (row.earned_total || 0),
-    deficit_minutes,
-    deficit_amount,
-    manual_deficit: Number(user && user.manual_deficit) || 0,
+    deficit_minutes, deficit_amount, manual_deficit: Number(user && user.manual_deficit) || 0,
   };
 }
 
@@ -356,24 +342,9 @@ function dateClause(from, to, alias = 'p', col = 'created_at') {
 async function adminOverview({ from, to } = {}) {
   const dateC = dateClause(from, to);
   const params = [];
-  if (from) params.push(from);
-  if (to) params.push(to);
+  if (from) params.push(from); if (to) params.push(to);
 
-  const perUser = await db
-    .prepare(
-      `SELECT u.id, u.name, u.email, u.role, u.hourly_rate, u.manual_deficit,
-              COUNT(p.id) AS projects,
-              COALESCE(SUM(CASE WHEN p.is_confirmed = 1 THEN p.amount ELSE 0 END), 0) AS earned_confirmed,
-              COALESCE(SUM(p.amount), 0) AS earned_total,
-              COALESCE(SUM(CASE WHEN p.is_confirmed = 0 THEN p.amount ELSE 0 END), 0) AS pending_confirm_amount,
-              SUM(CASE WHEN p.is_confirmed = 0 THEN 1 ELSE 0 END) AS pending_confirm_count,
-              (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes
-       FROM users u
-       LEFT JOIN projects p ON p.user_id = u.id ${dateC}
-       GROUP BY u.id
-       ORDER BY earned_confirmed DESC`
-    )
-    .all(...params);
+  const perUser = await db.prepare(`SELECT u.id, u.name, u.email, u.role, u.hourly_rate, u.manual_deficit, COUNT(p.id) AS projects, COALESCE(SUM(CASE WHEN p.is_confirmed = 1 THEN p.amount ELSE 0 END), 0) AS earned_confirmed, COALESCE(SUM(p.amount), 0) AS earned_total, COALESCE(SUM(CASE WHEN p.is_confirmed = 0 THEN p.amount ELSE 0 END), 0) AS pending_confirm_amount, SUM(CASE WHEN p.is_confirmed = 0 THEN 1 ELSE 0 END) AS pending_confirm_count, (SELECT COALESCE(SUM(s.deficit_minutes), 0) FROM shifts s WHERE s.user_id = u.id) AS deficit_minutes FROM users u LEFT JOIN projects p ON p.user_id = u.id ${dateC} GROUP BY u.id ORDER BY earned_confirmed DESC`).all(...params);
 
   for (const u of perUser) {
     const rate = Number(u.hourly_rate) || 0;
@@ -383,37 +354,16 @@ async function adminOverview({ from, to } = {}) {
 
   const shiftDates = dateClause(from, to, 's', 'started_at');
   const shiftParams = [];
-  if (from) shiftParams.push(from);
-  if (to) shiftParams.push(to);
-  const shiftCounts = await db
-    .prepare(
-      `SELECT user_id, COUNT(*) AS c FROM shifts s WHERE 1=1 ${shiftDates} GROUP BY user_id`
-    )
-    .all(...shiftParams);
+  if (from) shiftParams.push(from); if (to) shiftParams.push(to);
+  const shiftCounts = await db.prepare(`SELECT user_id, COUNT(*) AS c FROM shifts s WHERE 1=1 ${shiftDates} GROUP BY user_id`).all(...shiftParams);
 
   const countMap = {};
   for (const s of shiftCounts) countMap[s.user_id] = s.c;
   for (const u of perUser) u.shift_count = countMap[u.id] || 0;
 
-  const totals = await db
-    .prepare(
-      `SELECT
-         COALESCE(SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END), 0) AS earned_confirmed,
-         COALESCE(SUM(amount), 0) AS earned_total,
-         COALESCE(SUM(CASE WHEN is_confirmed = 0 THEN amount ELSE 0 END), 0) AS pending_confirm,
-         COUNT(*) AS projects
-       FROM projects p ${dateC ? 'WHERE 1=1' : ''} ${dateC}`
-    )
-    .get(...params);
+  const totals = await db.prepare(`SELECT COALESCE(SUM(CASE WHEN is_confirmed = 1 THEN amount ELSE 0 END), 0) AS earned_confirmed, COALESCE(SUM(amount), 0) AS earned_total, COALESCE(SUM(CASE WHEN is_confirmed = 0 THEN amount ELSE 0 END), 0) AS pending_confirm, COUNT(*) AS projects FROM projects p ${dateC ? 'WHERE 1=1' : ''} ${dateC}`).get(...params);
 
-  const unconfirmed = await db
-    .prepare(
-      `SELECT p.id, p.title, p.project_type, p.amount, p.created_at, u.name AS user_name
-       FROM projects p JOIN users u ON u.id = p.user_id
-       WHERE p.is_confirmed = 0 ${dateClause(from, to)}
-       ORDER BY p.created_at DESC`
-    )
-    .all(...params);
+  const unconfirmed = await db.prepare(`SELECT p.id, p.title, p.project_type, p.amount, p.created_at, u.name AS user_name FROM projects p JOIN users u ON u.id = p.user_id WHERE p.is_confirmed = 0 ${dateClause(from, to)} ORDER BY p.created_at DESC`).all(...params);
 
   return { perUser, totals, unconfirmed };
 }
@@ -423,4 +373,5 @@ module.exports = {
   listProjects, createProject, updateProject, deleteProject, deleteProjects,
   clearAllProjects, confirmProject, approveProject, getScoped, myStats,
   adminOverview, generateProjectCode, resolveSpecialistCode,
+  getMessages, addMessage
 };
