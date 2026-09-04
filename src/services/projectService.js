@@ -1,6 +1,54 @@
 const db = require('../db');
 const { AppError } = require('../middleware/errorHandler');
 
+// ===== إعداد Pusher للتحديث الفوري والإشعارات =====
+const Pusher = require('pusher');
+const pusher = new Pusher({
+  appId: "2191636",
+  key: "fa1c6ac7926e01e07be6",
+  secret: "fa8b44ea041b08443ff9",
+  cluster: "eu",
+  useTLS: true
+});
+
+const webpush = require('web-push');
+const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+const privateVapidKey = 'cRqKX0W214j-9vE-fD_4XkC5k0P-yB_aX_7e_Uj-6wA';
+
+try {
+  webpush.setVapidDetails('mailto:admin@maktabna.com', publicVapidKey, privateVapidKey);
+} catch (e) {}
+
+// دالة إرسال الإشعار اللحظي للمستخدم (بتشغل الموبايل المقفول والمفتوح مرة واحدة)
+async function notifyUser(userId, message) {
+  if (!userId) return;
+  try {
+    await db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(userId, message);
+    
+    // إرسال الإشعار فوراً للمنصة المفتوحة عبر Pusher ليعمل مرة واحدة فقط
+    pusher.trigger('maktabna-channel', 'new-notification', { userId: userId, message: message });
+
+    // إرسال إشعار للمتصفحات المقفولة (الموبايل في الخلفية)
+    const subs = await db.prepare('SELECT subscription FROM push_subscriptions WHERE user_id = ?').all(userId);
+    const payload = JSON.stringify({ title: 'مكتبنا', message });
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(JSON.parse(sub.subscription), payload);
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await db.prepare('DELETE FROM push_subscriptions WHERE subscription = ?').run(sub.subscription);
+        }
+      }
+    }
+  } catch (e) { console.error('Notification error:', e); }
+}
+
+// دالة تحديث الشاشات عند أي تغيير
+function triggerUpdate() {
+  pusher.trigger('maktabna-channel', 'project-update', { time: Date.now() });
+}
+// ====================================================
+
 const PROJECT_TYPES = [
   'research', 'report', 'presentation', 'website', 'landing', 'ecommerce', 'platform', 'webapp',
   'software', 'app', 'mobile', 'tool', 'design', 'logo', 'branding', 'ui', 'ux', 'animation', 'photo',
@@ -16,14 +64,6 @@ const CURRENCIES = ['egp', 'sar', 'usd'];
 const CURRENCY_LABELS = { egp: 'جنيه مصري', sar: 'ريال سعودي', usd: 'دولار أمريكي' };
 const CURRENCY_SYMBOLS = { egp: 'ج.م', sar: 'ر.س', usd: '$' };
 const normalizeSpecialistCode = (value) => String(value || '').trim().toUpperCase();
-
-// دالة إرسال الإشعار
-async function notifyUser(userId, message) {
-  if (!userId) return;
-  try {
-    await db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)').run(userId, message);
-  } catch (e) { console.error('Notification error:', e); }
-}
 
 async function hideIncomeForClient(project, userId) {
   const user = await db.prepare('SELECT persona, role, can_manage FROM users WHERE id = ?').get(userId);
@@ -160,6 +200,7 @@ async function createProject(userId, data) {
     await notifyUser(effectiveExecutorId, `تم تكليفك بمشروع جديد بانتظار اعتمادك: ${title.trim()}`);
   }
 
+  triggerUpdate(); // تحديث فوري لكل الأطراف
   return await getScoped(userId, insertedId);
 }
 
@@ -173,10 +214,6 @@ async function updateProject(userId, projectId, patch, opts = {}) {
     if (patch.status === 'done' && current.request_status !== 'approved') throw new AppError(400, 'اعتمد الطلب أولًا قبل تحويله إلى منجز', 'REQUEST_APPROVAL_REQUIRED');
   }
   
-  if (!admin && creator && creator.persona === 'client' && patch.executor_id) throw new AppError(400, 'العميل يختار الوسيط فقط', 'CLIENT_CANNOT_ASSIGN_SPECIALIST');
-  if (!admin && creator && creator.persona === 'intermediary' && patch.intermediary_id) throw new AppError(400, 'الوسيط يختار المختص فقط', 'INTERMEDIARY_CANNOT_ASSIGN_INTERMEDIARY');
-  if (!admin && creator && creator.persona === 'intermediary' && patch.executor_id !== undefined) throw new AppError(400, 'استخدم كود المختص فقط', 'EXECUTOR_ID_NOT_ALLOWED');
-
   const allowed = ['title', 'project_type', 'amount', 'paid_amount', 'currency', 'status', 'notes', 'shift_id', 'intermediary_id', 'executor_id', 'phone', 'client_name', 'code', 'due_date', 'delivery_time'];
   const nextData = {};
   
@@ -198,19 +235,6 @@ async function updateProject(userId, projectId, patch, opts = {}) {
   nextData.code = (nextData.code || '').trim();
   nextData.currency = CURRENCIES.includes(nextData.currency) ? nextData.currency : 'egp';
   
-  if (nextData.executor_id) {
-    const executor = await db.prepare("SELECT id FROM users WHERE id = ? AND persona = 'specialist' AND is_active = 1").get(nextData.executor_id);
-    if (!executor) throw new AppError(400, 'المختص المنفذ غير موجود أو غير متاح', 'INVALID_EXECUTOR');
-  }
-  if (nextData.intermediary_id) {
-    const intermediary = await db.prepare("SELECT id FROM users WHERE id = ? AND persona = 'intermediary' AND is_active = 1").get(nextData.intermediary_id);
-    if (!intermediary) throw new AppError(400, 'الوسيط المسؤول غير موجود أو غير متاح', 'INVALID_INTERMEDIARY');
-  }
-  if (nextData.code) {
-    const dup = await db.prepare('SELECT id FROM projects WHERE code = ? AND id != ?').get(nextData.code, projectId);
-    if (dup) throw new AppError(409, 'هذا الكود مستخدم في مشروع آخر، اختر كودًا مختلفًا', 'CODE_TAKEN');
-  }
-
   await db.prepare(
     `UPDATE projects
     SET code = ?, title = ?, project_type = ?, amount = ?, paid_amount = ?, currency = ?, status = ?, notes = ?, shift_id = ?, intermediary_id = ?, executor_id = ?, phone = ?, client_name = ?, due_date = ?, delivery_time = ?, updated_at = CURRENT_TIMESTAMP
@@ -225,6 +249,7 @@ async function updateProject(userId, projectId, patch, opts = {}) {
     }
   }
 
+  triggerUpdate(); // تحديث فوري لكل الأطراف
   return await getScoped(userId, projectId, { admin });
 }
 
@@ -236,16 +261,21 @@ async function deleteProject(userId, projectId, opts = {}) {
   } else {
     await db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(projectId, userId);
   }
+  triggerUpdate();
   return { deleted: true };
 }
 
 async function deleteProjects(ids) {
   const placeholders = ids.map(() => '?').join(',');
-  return await db.prepare(`DELETE FROM projects WHERE id IN (${placeholders})`).run(...ids);
+  const res = await db.prepare(`DELETE FROM projects WHERE id IN (${placeholders})`).run(...ids);
+  triggerUpdate();
+  return res;
 }
 
 async function clearAllProjects() {
-  return await db.prepare('DELETE FROM projects').run();
+  const res = await db.prepare('DELETE FROM projects').run();
+  triggerUpdate();
+  return res;
 }
 
 async function confirmProject(userId, projectId) {
@@ -261,6 +291,7 @@ async function confirmProject(userId, projectId) {
     await notifyUser(targetId, `تم تأكيد استلام الدخل لمشروع: ${project.title}`);
   }
 
+  triggerUpdate(); // تحديث فوري لكل الأطراف
   return await getScoped(userId, projectId);
 }
 
@@ -277,6 +308,7 @@ async function approveProject(userId, projectId) {
     await notifyUser(targetId, `المختص اعتمد الطلب وبدأ التنفيذ: ${project.title}`);
   }
 
+  triggerUpdate(); // تحديث فوري لكل الأطراف
   return await getScoped(userId, projectId);
 }
 

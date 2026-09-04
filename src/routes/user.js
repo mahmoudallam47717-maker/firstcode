@@ -229,18 +229,19 @@ router.post('/projects/:id/confirm', async (req, res, next) => {
   } catch(err) { next(err); }
 });
 
-// -- مسارات الإشعارات --
+// المسار ده بيحفظ اشتراك التليفون عشان نبعتله إشعارات وهو مقفول
+router.post('/push-subscribe', async (req, res, next) => {
+  try {
+    const subscription = JSON.stringify(req.body);
+    await db.prepare('INSERT OR IGNORE INTO push_subscriptions (user_id, subscription) VALUES (?, ?)').run(req.user.id, subscription);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// خلينا دي عشان لو في إشعارات متأخرة
 router.get('/notifications', async (req, res, next) => {
   try {
-    const notifications = await db.prepare('SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at ASC').all(req.user.id);
-    
-    // التعديل السحري: بمجرد ما السيرفر يشوف إن ليك إشعار غير مقروء وبيجهزه عشان يبعتهولك،
-    // بيعمل تحديث فوري ويخليه مقروء، عشان لو المتصفح سأل تاني ميعتبروش إشعار جديد أبداً.
-    if (notifications && notifications.length > 0) {
-      await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0').run(req.user.id);
-    }
-    
-    res.json({ notifications });
+    res.json({ notifications: [] }); 
   } catch (err) { next(err); }
 });
 

@@ -20,12 +20,16 @@ app.set('trust proxy', config.trustProxy || 'loopback');
 app.use(helmet());
 app.use(
   cors({
-    origin: config.corsOrigin && config.corsOrigin.length > 0 ? config.corsOrigin : '*', // تعديل بسيط لـ Vercel
+    origin: config.corsOrigin && config.corsOrigin.length > 0 ? config.corsOrigin : '*',
     credentials: true,
   })
 );
 app.use(compression());
-app.use(express.json({ limit: '1mb' }));
+
+// تم التعديل هنا: السماح باستقبال ملفات وبيانات بحجم يصل إلى 50 ميجا
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 app.use(morgan(config.logLevel, { skip: () => config.env === 'test' }));
 
 const globalLimiter = rateLimit({
@@ -37,7 +41,7 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-app.get('/health', async (req, res) => { // تحويل الدالة لـ async عشان PostgreSQL
+app.get('/health', async (req, res) => {
   try {
     const alive = await db.prepare('SELECT 1 AS ok').get();
     res.status(alive ? 200 : 503).json({ status: alive ? 'ok' : 'degraded', uptime: process.uptime() });
@@ -46,6 +50,7 @@ app.get('/health', async (req, res) => { // تحويل الدالة لـ async �
   }
 });
 
+// الروابط الخاصة بالمنصة
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/shifts', shiftRoutes);
@@ -62,5 +67,4 @@ app.get('*', (req, res, next) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// حذفنا دالة start() لأن Vercel هو اللي بيشغل السيرفر بنفسه (Serverless)
 module.exports = app;

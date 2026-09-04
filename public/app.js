@@ -59,14 +59,11 @@ function toast(msg, type = 'info') {
   toastTimer = setTimeout(() => { t.classList.add('hidden'); }, 4000);
 }
 
+// فك قفل الصوت
 let audioCtx = null;
 function unlockAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 window.addEventListener('click', unlockAudio, { once: true });
 window.addEventListener('touchstart', unlockAudio, { once: true });
@@ -75,64 +72,63 @@ function playNotificationSound() {
   try {
     if (!audioCtx) unlockAudio();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    
     osc.type = 'sine';
     osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
     osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); 
-    
     gain.gain.setValueAtTime(0, audioCtx.currentTime);
     gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
     gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
     gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.2);
     gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
-    
     osc.start(audioCtx.currentTime);
     osc.stop(audioCtx.currentTime + 0.4);
   } catch (e) {}
 }
 
-let notifInterval = null;
-let isCheckingNotifs = false;
+/* ==================== WEB PUSH (Background closed app) ==================== */
+const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+  return outputArray;
+}
 
-async function checkNotifications() {
-  if (!state.token || isCheckingNotifs || !$('#view-app') || $('#view-app').classList.contains('hidden')) return;
-  isCheckingNotifs = true;
-  try {
-    const res = await api('GET', '/api/users/notifications');
-    if (res.status === 200 && res.data.notifications && res.data.notifications.length > 0) {
-      
-      let playSound = false;
-      let hasNew = false;
-      
-      for (const n of res.data.notifications) {
-        // التحقق القوي: استخدام localStorage بيضمن إن الإشعار مستحيل يتكرر 
-        // حتى لو كنت فاتح المنصة من أكتر من تاب أو متصفح في نفس الوقت
-        const notifKey = `notif_done_${n.id}`;
-        if (!localStorage.getItem(notifKey)) {
-          localStorage.setItem(notifKey, 'true');
-          playSound = true;
-          hasNew = true;
-          
-          toast('🔔 ' + n.message, 'success');
-          
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('مكتبنا', { body: n.message });
-          }
-        }
-      }
-      
-      if (playSound) playNotificationSound();
-      if (hasNew) refreshAll(); 
-    }
-  } catch (e) {} finally {
-    isCheckingNotifs = false;
+async function subscribePush() {
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const register = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      const subscription = await register.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+      });
+      await api('POST', '/api/users/push-subscribe', subscription);
+    } catch (err) { console.error('Push error', err); }
   }
 }
+
+/* ==================== PUSHER (Real-time opened app) ==================== */
+const pusher = new Pusher('fa1c6ac7926e01e07be6', { cluster: 'eu' });
+const channel = pusher.subscribe('maktabna-channel');
+
+channel.bind('project-update', function(data) {
+  if (state.token) refreshAll(); // يتحدث فوراً لكل الأطراف
+});
+
+channel.bind('new-notification', function(data) {
+  if (state.token && state.user && data.userId === state.user.id) {
+    // لما الإشعار يوصلك والمنصة مفتوحة
+    playNotificationSound();
+    toast('🔔 ' + data.message, 'success');
+    refreshAll();
+  }
+});
 
 /* ==================== Auth ==================== */
 const authForm = $('#auth-form');
@@ -191,7 +187,6 @@ authToggleBtn.addEventListener('click', () => setAuthMode(authMode === 'login' ?
 function logout() {
   state.token = null; state.user = null;
   sessionStorage.removeItem('taskflow_token');
-  if (notifInterval) clearInterval(notifInterval);
   showAuth();
 }
 
@@ -1153,12 +1148,12 @@ async function enterApp() {
   refreshAdminTools(); await refreshAll(); showPage('dashboard'); void renderRecent;
   
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') subscribePush();
+    });
+  } else if ('Notification' in window && Notification.permission === 'granted') {
+    subscribePush();
   }
-  
-  if (notifInterval) clearInterval(notifInterval);
-  notifInterval = setInterval(checkNotifications, 7000);
-  checkNotifications();
 }
 
 /* ==================== Init ==================== */
